@@ -6,6 +6,7 @@ import pandas as pd
 #%%
 ROOTDIR = pathlib.Path(__file__).parent
 DATADIR = ROOTDIR / 'data'
+OUTDIR = ROOTDIR / 'output'
 STUDENT_DATA = DATADIR / 'Bro-Maria.xlsx'
 
 CLASS_NAMES_DICT = {'Βιολογία':'bio',
@@ -14,6 +15,7 @@ CLASS_NAMES_DICT = {'Βιολογία':'bio',
                     'γλώσσα':'lang',
                     }
 
+WIDE_DF_XLSX = OUTDIR / 'wide_df.xlsx'
 # %%
 df = pd.read_excel(STUDENT_DATA, sheet_name='data-StudentsDistribution')
 df.drop(columns=['Column1', 'excludde'], inplace=True)
@@ -67,4 +69,25 @@ def massage_data_for_class_year(df,class_name, year):
 massaged_data = massage_data_for_class_year(df, class_name, year)
 # %%
 massaged_data
+# %% [markdown]
+'''
+# Create Wide format for each year
+'''
+#%%
+
+# from the df I want to get a wide  format with rows  year and for columns a combination of the class_cname and the marks_bin_start <class_name>_<marks_bin_start:0d >
+def get_wide_format(df):
+    """
+    This function takes a DataFrame and returns a wide format DataFrame
+    with columns as class_name_marks_bin_start and rows as year.
+    """
+    df['class_marks_bin'] = df.apply(lambda row: f"{row['class']}_{row['marks_bin_start']:02d}", axis=1)
+    wide_df = df.pivot_table(index='year', columns='class_marks_bin', values='percentage', fill_value=0)
+    return wide_df
+
+# %%
+wide_df = get_wide_format(df)
+
+# %%
+wide_df.to_excel(WIDE_DF_XLSX, index=True)
 # %%
