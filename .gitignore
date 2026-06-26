@@ -15,6 +15,9 @@ profiles/*/analysis.xlsx
 # Excel lock files
 ~$*.xlsx
 
+# Sphinx build output
+docs/_build/
+
 # OS
 .DS_Store
 Thumbs.db

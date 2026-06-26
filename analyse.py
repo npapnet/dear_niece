@@ -1,11 +1,12 @@
 #%%
 """
-Percentile-based analysis of student grade distributions.
+High-end metric and baseis shift analysis with least-squares prediction.
 
-For each subject and year, compute the cumulative distribution and find which
-score bin corresponds to specified percentile thresholds (e.g. top 10%).
-Then track year-over-year shifts in those percentile scores to project
-how admission thresholds (baseis) are likely to move.
+For each subject and year, compute the weighted high-end metric, then use
+year-over-year metric shifts as the independent variable in a per-school
+least-squares regression against observed baseis shifts. The most recent
+metric shift (distributions typically available one year ahead of baseis)
+is used to predict the upcoming admission threshold change.
 """
 
 import argparse
@@ -22,7 +23,6 @@ DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
 
 CLASSES = ['bio', 'phys', 'chem', 'lang']
 BINS = [0, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-PERCENTILES = [85, 90, 95]
 
 # %%
 parser = argparse.ArgumentParser()
@@ -51,15 +51,6 @@ def get_class_distribution(wide_df, year, class_name):
     return wide_df.loc[year, cols].rename(lambda c: int(c.split('_')[1]))
 
 
-def find_percentile_bin(distribution, percentile):
-    """Return the bin label where the cumulative distribution first reaches `percentile`."""
-    cumulative = distribution.cumsum()
-    for bin_label, cum_val in cumulative.items():
-        if cum_val >= percentile:
-            return bin_label
-    return BINS[-1]
-
-
 # %%
 # --- Year-over-year differences (raw percentage shift per bin) ---
 years = wide_df.index.tolist()
@@ -76,40 +67,7 @@ high_bins = [c for c in diff_df.columns if any(c.endswith(f'_{b:02d}') for b in 
 print(diff_df[high_bins].round(2).to_string())
 
 # %%
-# --- Percentile analysis ---
-records = []
-for year in years:
-    for cls in CLASSES:
-        dist = get_class_distribution(wide_df, year, cls)
-        cumulative = dist.cumsum()
-        for pct in PERCENTILES:
-            bin_label = find_percentile_bin(dist, pct)
-            records.append({
-                'year': year,
-                'class': cls,
-                'percentile': pct,
-                'score_bin': bin_label,
-            })
-
-percentile_df = pd.DataFrame(records)
-
-# %%
-# Wide table: rows=year, cols=(class, percentile)
-pivot = percentile_df.pivot_table(
-    index='year', columns=['class', 'percentile'], values='score_bin'
-)
-print("\nScore bin at each percentile, by year and subject:")
-print(pivot.to_string())
-
-# %%
-# Year-over-year change in percentile score bins
-shifts = pivot.diff().dropna()
-shifts.index.name = 'from_prev_year'
-print("\nYear-over-year shift in percentile score bin (positive = harder year):")
-print(shifts.to_string())
-
-# %%
-# Weights penalise lower bins less; higher bins count more toward the index.
+# --- Weighted high-end metric ---
 METRIC_WEIGHTS = {
     'bio':  {18: 0, 19: 1},
     'chem': {18: 0, 19: 1},
@@ -151,14 +109,88 @@ baseis_detail = (
 )
 
 # %%
+# --- Least-squares regression: metric_shift → baseis_shift per school ---
+#
+# Training: years where both metric_shift and baseis_shift are available.
+# Prediction: most recent metric_shift year (distributions are published one
+# year ahead of baseis, so this is typically the upcoming unpublished year).
+metric_shift_series = metric_df['metric_shift'].dropna()
+
+common_years = metric_shift_series.index.intersection(baseis_shift.index)
+X_train = metric_shift_series.loc[common_years].values
+A_matrix = np.column_stack([X_train, np.ones_like(X_train)])
+
+prediction_year = int(metric_shift_series.index.max())
+x_pred = float(metric_shift_series.loc[prediction_year])
+pred_label = f'{prediction_year}-{prediction_year - 1}'
+last_baseis_year = int(baseis_wide.index.max())
+
+print(f"\nTraining years: {common_years.tolist()}")
+print(f"Prediction period: {pred_label}, metric_shift = {x_pred:.4f}")
+print(f"Last known baseis year: {last_baseis_year}")
+
+school_info = (
+    baseis_df[baseis_df['year'] == last_baseis_year]
+    .groupby('school_code')
+    .agg(institution=('institution', 'first'), department=('department', 'first'))
+)
+
+prediction_records = []
+for school in baseis_shift.columns:
+    y_train = baseis_shift.loc[common_years, school].values
+
+    if len(common_years) < 2 or np.all(np.isnan(y_train)):
+        a, b, r2 = np.nan, np.nan, np.nan
+    else:
+        # Drop rows where y is NaN (school missing in some years)
+        mask = ~np.isnan(y_train)
+        A_fit = A_matrix[mask]
+        y_fit = y_train[mask]
+        if len(y_fit) < 2:
+            a, b, r2 = np.nan, np.nan, np.nan
+        else:
+            coeffs, _, _, _ = np.linalg.lstsq(A_fit, y_fit, rcond=None)
+            a, b = coeffs
+            y_pred_train = A_fit @ coeffs
+            ss_res = float(np.sum((y_fit - y_pred_train) ** 2))
+            ss_tot = float(np.sum((y_fit - y_fit.mean()) ** 2))
+            r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
+
+    predicted_shift = a * x_pred + b if not np.isnan(a) else np.nan
+    last_entry = (
+        baseis_wide.loc[last_baseis_year, school]
+        if last_baseis_year in baseis_wide.index else np.nan
+    )
+    predicted_entry = last_entry + predicted_shift if not (np.isnan(last_entry) or np.isnan(predicted_shift)) else np.nan
+
+    inst = school_info.loc[school, 'institution'] if school in school_info.index else ''
+    dept = school_info.loc[school, 'department'] if school in school_info.index else ''
+
+    prediction_records.append({
+        'school_code': school,
+        'institution': inst,
+        'department': dept,
+        'a': round(float(a), 4) if not np.isnan(a) else np.nan,
+        'b': round(float(b), 4) if not np.isnan(b) else np.nan,
+        'r2': round(float(r2), 4) if not np.isnan(r2) else np.nan,
+        f'metric_shift ({pred_label})': round(x_pred, 4),
+        'predicted_shift': round(float(predicted_shift), 2) if not np.isnan(predicted_shift) else np.nan,
+        f'entry_{last_baseis_year}': last_entry,
+        f'predicted_entry_{prediction_year}': round(float(predicted_entry), 2) if not np.isnan(predicted_entry) else np.nan,
+    })
+
+prediction_df = pd.DataFrame(prediction_records)
+print("\nPredictions:")
+print(prediction_df.to_string())
+
+# %%
 # --- Save results ---
 with pd.ExcelWriter(analysis_out) as writer:
-    pivot.to_excel(writer, sheet_name='percentile_scores')
-    shifts.to_excel(writer, sheet_name='percentile_shifts')
     metric_df.to_excel(writer, sheet_name='high_end_metric')
     diff_df.to_excel(writer, sheet_name='bin_diffs')
     baseis_wide.to_excel(writer, sheet_name='baseis')
     baseis_shift.to_excel(writer, sheet_name='baseis_shifts')
     baseis_detail.to_excel(writer, sheet_name='baseis_detail', index=False)
+    prediction_df.to_excel(writer, sheet_name='predictions', index=False)
 
-print(f"\nSaved → {analysis_out}")
+print(f"\nSaved: {analysis_out}")
