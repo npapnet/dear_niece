@@ -21,9 +21,8 @@ Per-class grade distributions (percentage of students in each score bin), for ye
 
 Minimum admission scores (on a 0–20,000 scale) per school and year.
 
-- Source: `data/baseis.xlsx`, sheet `data-baseis`
-- 7 schools: EKPA, AUTH, Patras, Ioannina, Thessaly, Hera, Thrace
-- Years: 2022–2024
+- Source: `data/baseis-raw/gel-{YEAR}.xlsx` (raw ministry downloads), combined into `data/baseis-master.csv` by `load_baseis.py`
+- Profile-specific subsets declared in `profiles/{name}/schools.yml`
 - Data origin:
   - [2023 baseis](https://aeitei.gr/index.php?year=2023&pedio=3&likio_type=gh&order=2)
   - [2024 baseis](https://aeitei.gr/index.php?sist=&sys=&vasi=basi&year=2024&pedio=3&aeitei=&city=&likio_type=gh&cat=1&order=2)

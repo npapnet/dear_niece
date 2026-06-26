@@ -10,7 +10,7 @@ inputs:
     required: true
 outputs:
   - name: analysis
-    description: profiles/{name}/analysis.xlsx — six sheets covering percentile scores, shifts, metric, and baseis trend
+    description: profiles/{name}/analysis.xlsx — seven sheets covering percentile scores, shifts, metric, baseis trend, and baseis detail
 ---
 
 ## What this skill does
@@ -26,8 +26,9 @@ percentile analysis. All six output sheets are written to `profiles/{name}/analy
 | `percentile_shifts` | Year-over-year change in those percentile bins |
 | `high_end_metric` | Weighted sum of high-end bins |
 | `bin_diffs` | Raw year-over-year percentage change per bin |
-| `baseis` | Admission thresholds (columns = institution, rows = year) |
+| `baseis` | Admission thresholds in wide format (rows=year, cols=school_code) |
 | `baseis_shifts` | Year-over-year change in admission thresholds |
+| `baseis_detail` | Long-format baseis: year, school_code, institution, department, entry |
 
 ## Command
 

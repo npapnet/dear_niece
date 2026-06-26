@@ -36,11 +36,9 @@ data/
     ...
   distributions.xlsx       # national student mark distributions (rename from Bro-Maria.xlsx)
   baseis-master.csv        # combined long-format master (auto-generated, do not edit)
-  baseis.xlsx              # legacy hand-maintained subset; superseded by profiles
 
 output/                    # all generated — gitignored
   distributions_wide.xlsx  # grade distribution pivot
-  analysis.xlsx            # percentile analysis and baseis trend (legacy, no --profile)
   distributions_plot.png   # complementary CDF plots per subject
 
 profiles/
@@ -104,7 +102,6 @@ All outputs are gitignored and always regenerated from source.
 - **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
 - **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).
 - **Greek text throughout.** All `department`, `institution`, and `position_type` values are in Greek. Note: the K in `ΓΕΝIKH` switched from a Latin K (2023–2024) to a Greek Κ (2025+); if filtering by position_type, use `.str.contains('ΓΕΝΙ[KΚ]', na=False, regex=True)`.
-- **`data/baseis.xlsx`** is hand-curated for the 7 schools of interest and is never overwritten by any script.
 
 ## Update procedure (each year)
 

@@ -7,7 +7,7 @@ __pycache__/
 .pytest_cache/
 
 # Calculated outputs
-# output/
+output/
 data/baseis-master.csv
 
 profiles/*/analysis.xlsx

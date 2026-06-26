@@ -19,8 +19,6 @@ ROOTDIR = pathlib.Path(__file__).parent
 DATADIR = ROOTDIR / 'data'
 OUTDIR = ROOTDIR / 'output'
 DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
-BASEIS_XLSX = DATADIR / 'baseis.xlsx'
-ANALYSIS_OUTPUT = OUTDIR / 'analysis.xlsx'
 
 CLASSES = ['bio', 'phys', 'chem', 'lang']
 BINS = [0, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
@@ -28,23 +26,17 @@ PERCENTILES = [85, 90, 95]
 
 # %%
 parser = argparse.ArgumentParser()
-parser.add_argument('--profile', default=None)
+parser.add_argument('--profile', required=True)
 args = parser.parse_args()
 
-if args.profile:
-    profile_dir = ROOTDIR / 'profiles' / args.profile
-    schools = yaml.safe_load((profile_dir / 'schools.yml').read_text())['schools']
-    master = pd.read_csv(ROOTDIR / 'data' / 'baseis-master.csv', encoding='utf-8-sig')
-    _sc = master['school_code'].astype('Int64').astype(str).str.zfill(4)
-    baseis_df = master.loc[_sc.isin(schools), ['year', 'school_code', 'entry']].copy()
-    baseis_df['school_code'] = _sc[baseis_df.index]
-    baseis_col = 'school_code'
-    analysis_out = profile_dir / 'analysis.xlsx'
-    profile_dir.mkdir(parents=True, exist_ok=True)
-else:
-    baseis_df = pd.read_excel(BASEIS_XLSX, sheet_name='data-baseis')
-    baseis_col = 'School'
-    analysis_out = ANALYSIS_OUTPUT
+profile_dir = ROOTDIR / 'profiles' / args.profile
+schools = yaml.safe_load((profile_dir / 'schools.yml').read_text())['schools']
+master = pd.read_csv(ROOTDIR / 'data' / 'baseis-master.csv', encoding='utf-8-sig')
+_sc = master['school_code'].astype('Int64').astype(str).str.zfill(4)
+baseis_df = master.loc[_sc.isin(schools), ['year', 'school_code', 'institution', 'department', 'entry']].copy()
+baseis_df['school_code'] = _sc[baseis_df.index]
+analysis_out = profile_dir / 'analysis.xlsx'
+profile_dir.mkdir(parents=True, exist_ok=True)
 
 # %%
 wide_df = pd.read_excel(DISTRIBUTIONS_WIDE, sheet_name=0, index_col=0)
@@ -117,7 +109,6 @@ print("\nYear-over-year shift in percentile score bin (positive = harder year):"
 print(shifts.to_string())
 
 # %%
-# --- Weighted high-end metric (reproduces the manual calculation in wide_df-work.xlsx) ---
 # Weights penalise lower bins less; higher bins count more toward the index.
 METRIC_WEIGHTS = {
     'bio':  {18: 0, 19: 1},
@@ -143,12 +134,21 @@ print(metric_df.to_string())
 # %%
 # --- Baseis data ---
 print("\nAdmission thresholds (baseis):")
-baseis_wide = baseis_df.pivot_table(index='year', columns=baseis_col, values='entry', aggfunc='max')
+baseis_wide = baseis_df.pivot_table(index='year', columns='school_code', values='entry', aggfunc='max')
 print(baseis_wide.to_string())
 
 baseis_shift = baseis_wide.diff().dropna()
 print("\nYear-over-year change in baseis:")
 print(baseis_shift.to_string())
+
+baseis_detail = (
+    baseis_df.groupby(['year', 'school_code'])
+    .agg(institution=('institution', 'first'),
+         department=('department', 'first'),
+         entry=('entry', 'max'))
+    .reset_index()
+    .sort_values(['year', 'school_code'])
+)
 
 # %%
 # --- Save results ---
@@ -159,5 +159,6 @@ with pd.ExcelWriter(analysis_out) as writer:
     diff_df.to_excel(writer, sheet_name='bin_diffs')
     baseis_wide.to_excel(writer, sheet_name='baseis')
     baseis_shift.to_excel(writer, sheet_name='baseis_shifts')
+    baseis_detail.to_excel(writer, sheet_name='baseis_detail', index=False)
 
 print(f"\nSaved → {analysis_out}")
