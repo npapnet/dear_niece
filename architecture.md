@@ -46,10 +46,10 @@ profiles/
     schools.yml            # committed input — 4-digit ministry codes for schools of interest
     analysis.xlsx          # gitignored output — profile-scoped analysis
 
-load_baseis.py             # loader module — the only place that knows the raw baseis format
-pivot_distributions.py     # reads distributions.xlsx → output/distributions_wide.xlsx
+national_load_baseis.py             # loader module — the only place that knows the raw baseis format
+national_pivot_distributions.py     # reads distributions.xlsx → output/distributions_wide.xlsx
 analyse.py                 # reads distributions_wide.xlsx → profiles/{name}/analysis.xlsx
-plot_distributions.py      # reads distributions_wide.xlsx → output/distributions_plot.png
+national_plot_distributions.py      # reads distributions_wide.xlsx → output/distributions_plot.png
 ```
 
 
@@ -88,17 +88,17 @@ Tiebreak-criteria columns (`ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ` for both firs
 The scripts run in sequence; each feeds the next:
 
 ```
-load_baseis.py          →  data/baseis-master.csv
-pivot_distributions.py  →  output/distributions_wide.xlsx
+national_load_baseis.py          →  data/baseis-master.csv
+national_pivot_distributions.py  →  output/distributions_wide.xlsx
 analyse.py              →  output/analysis.xlsx
-plot_distributions.py   →  output/distributions_plot.png
+national_plot_distributions.py   →  output/distributions_plot.png
 ```
 
 All outputs are gitignored and always regenerated from source.
 
 ## Key conventions
 
-- **`load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only.
+- **`national_load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only.
 - **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
 - **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).
 - **Greek text throughout.** All `department`, `institution`, and `position_type` values are in Greek. Note: the K in `ΓΕΝIKH` switched from a Latin K (2023–2024) to a Greek Κ (2025+); if filtering by position_type, use `.str.contains('ΓΕΝΙ[KΚ]', na=False, regex=True)`.
@@ -109,10 +109,10 @@ All outputs are gitignored and always regenerated from source.
 2. Add the new year's 48 distribution rows to `data/distributions.xlsx` (sheet `data-StudentsDistribution`).
 3. Run the full pipeline:
    ```bash
-   uv run python load_baseis.py
-   uv run python pivot_distributions.py
+   uv run python national_load_baseis.py
+   uv run python national_pivot_distributions.py
    uv run python analyse.py --profile maria
-   uv run python plot_distributions.py
+   uv run python national_plot_distributions.py
    ```
 
 No code changes are needed for a routine yearly update. See the [`yearly-update`](.agents/workflows/yearly-update.md) workflow for the full checklist.
@@ -155,7 +155,7 @@ The raw field column contains strings like `'2/3'` or `'1/2/4'` indicating that 
 The `ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ` columns contain free-text tiebreak criteria strings (e.g. `'18,2 19,4 19,7 1 16,1'`). They carry no analytical value for threshold prediction and are discarded on load.
 
 ### Loader owns the format knowledge
-All header-parsing logic lives in `load_baseis.py`. If the ministry changes the layout again, only that file needs updating.
+All header-parsing logic lives in `national_load_baseis.py`. If the ministry changes the layout again, only that file needs updating.
 
 ### CSV vs Parquet for the master file
 
@@ -188,11 +188,11 @@ Atomic, single-script operations. Each skill maps directly to one Python script.
 
 | Skill | Script | Trigger |
 |---|---|---|
-| [`load-baseis`](.agents/skills/load-baseis.md) | `load_baseis.py` | New `gel-{YEAR}.xlsx` added to `data/baseis-raw/` |
-| [`pivot-distributions`](.agents/skills/process-distributions.md) | `pivot_distributions.py` | New rows added to `distributions.xlsx` |
+| [`load-baseis`](.agents/skills/load-baseis.md) | `national_load_baseis.py` | New `gel-{YEAR}.xlsx` added to `data/baseis-raw/` |
+| [`pivot-distributions`](.agents/skills/process-distributions.md) | `national_pivot_distributions.py` | New rows added to `distributions.xlsx` |
 | [`run-profile-analysis`](.agents/skills/run-profile-analysis.md) | `analyse.py --profile <name>` | Either of the above ran |
 | [`run-analysis`](.agents/skills/run-analysis.md) | `analyse.py` | Legacy — no profile; use `run-profile-analysis` instead |
-| [`plot-distributions`](.agents/skills/plot-distributions.md) | `plot_distributions.py` | After `pivot-distributions` runs |
+| [`plot-distributions`](.agents/skills/plot-distributions.md) | `national_plot_distributions.py` | After `pivot-distributions` runs |
 
 ### Workflows
 

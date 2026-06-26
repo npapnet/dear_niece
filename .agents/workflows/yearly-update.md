@@ -25,7 +25,7 @@ Before running this workflow:
 **Skill:** `load-baseis`
 
 ```bash
-uv run python load_baseis.py
+uv run python national_load_baseis.py
 ```
 
 Verify: `data/baseis-master.csv` contains rows for `{year}`.
@@ -37,7 +37,7 @@ Verify: `data/baseis-master.csv` contains rows for `{year}`.
 **Skill:** `pivot-distributions`
 
 ```bash
-uv run python pivot_distributions.py
+uv run python national_pivot_distributions.py
 ```
 
 Verify: `output/distributions_wide.xlsx` index includes `{year}`.
@@ -62,7 +62,7 @@ to see where the new year falls relative to prior years.
 **Skill:** `plot-distributions`
 
 ```bash
-uv run python plot_distributions.py
+uv run python national_plot_distributions.py
 ```
 
 Verify: `output/distributions_plot.png` — confirm the new year's line is visible

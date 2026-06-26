@@ -15,7 +15,7 @@ outputs:
 
 ## What this skill does
 
-Calls `pivot_distributions.py`, which:
+Calls `national_pivot_distributions.py`, which:
 
 1. Reads the `data-StudentsDistribution` sheet from `data/distributions.xlsx`.
 2. Renames Greek column headers and maps subject names to abbreviations
@@ -27,7 +27,7 @@ Calls `pivot_distributions.py`, which:
 ## Command
 
 ```bash
-uv run python pivot_distributions.py
+uv run python national_pivot_distributions.py
 ```
 
 ## Notes

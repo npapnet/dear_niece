@@ -20,7 +20,7 @@ outputs:
 
 ## What this skill does
 
-Calls `plot_distributions.py`, which:
+Calls `national_plot_distributions.py`, which:
 
 1. Loads `output/distributions_wide.xlsx`.
 2. For each subject (bio, phys, chem, lang) and year, computes
@@ -32,7 +32,7 @@ Calls `plot_distributions.py`, which:
 ## Command
 
 ```bash
-uv run python plot_distributions.py
+uv run python national_plot_distributions.py
 ```
 
 ## Notes

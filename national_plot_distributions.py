@@ -9,6 +9,7 @@ Output: output/distributions_plot.png
 """
 
 import pathlib
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import pandas as pd
@@ -47,13 +48,30 @@ def complementary_cdf(wide_row: pd.Series, class_name: str, from_bin: int) -> tu
     return thresholds, pct
 
 
+def _year_style(i: int, n: int, color) -> dict:
+    """Return line style kwargs for year at index i out of n total years.
+
+    All years keep their tab10 colour so they remain distinguishable.
+    Last year: thick dashed — primary focus.
+    Year before last: thick solid — comparison baseline.
+    Older years: thin solid — background context.
+    """
+    if i == n - 1:
+        return dict(color=color, linewidth=2.5, linestyle='--', markersize=6, zorder=3)
+    if i == n - 2:
+        return dict(color=color, linewidth=2.5, linestyle='-',  markersize=6, zorder=2)
+    return dict(color=color, linewidth=1.0, linestyle='-', markersize=3, zorder=1)
+
+
 def plot_distributions(wide_df: pd.DataFrame, from_bin: int = PLOT_FROM_BIN) -> plt.Figure:
     """
     4-subplot figure: one panel per subject, lines per year.
     Y-axis: % of students scoring at or above the x-axis threshold.
+    The two most recent years are drawn thicker; the last year is also dashed.
     """
     years = wide_df.index.tolist()
-    cmap = plt.cm.get_cmap('tab10', len(years))
+    n = len(years)
+    cmap = matplotlib.colormaps['tab10'].resampled(n)
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=False, sharey=False)
     fig.suptitle('Student score distributions — proportion scoring at or above threshold',
@@ -62,7 +80,8 @@ def plot_distributions(wide_df: pd.DataFrame, from_bin: int = PLOT_FROM_BIN) -> 
     for ax, cls in zip(axes.flat, CLASSES):
         for i, year in enumerate(years):
             thresholds, pct = complementary_cdf(wide_df.loc[year], cls, from_bin)
-            ax.plot(thresholds, pct, marker='o', label=str(year), color=cmap(i))
+            ax.plot(thresholds, pct, marker='o', label=str(year),
+                    **_year_style(i, n, cmap(i)))
 
         ax.set_title(CLASS_LABELS[cls], fontsize=11)
         ax.set_xlabel('Score threshold')

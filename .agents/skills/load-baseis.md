@@ -15,7 +15,7 @@ outputs:
 
 ## What this skill does
 
-Calls `load_baseis.py`, which:
+Calls `national_load_baseis.py`, which:
 
 1. Globs all `gel-*.xlsx` files in `data/baseis-raw/`.
 2. For each file, resolves the two-row merged-cell header automatically (handles the 12-col 2023/2024 layout and the 14-col 2025+ layout).
@@ -27,7 +27,7 @@ Calls `load_baseis.py`, which:
 ## Command
 
 ```bash
-uv run python load_baseis.py
+uv run python national_load_baseis.py
 ```
 
 ## Notes

@@ -30,11 +30,32 @@ Minimum admission scores (on a 0–20,000 scale) per school and year.
 
 ## Pipeline
 
-| Script | Input | Output | Purpose |
-|---|---|---|---|
-| `pivot_distributions.py` | `data/distributions.xlsx` | `output/distributions_wide.xlsx` | Pivot distributions to wide format (rows=year, cols=subject_bin) |
-| `analyse.py` | `output/distributions_wide.xlsx` | `output/analysis.xlsx` | Percentile analysis and year-over-year shifts |
-| `plot_distributions.py` | `output/distributions_wide.xlsx` | `output/distributions_plot.png` | Complementary CDF plots per subject |
+```mermaid
+flowchart LR
+    subgraph nat["National — once per year"]
+        LB["national_load_baseis.py"]
+        PD["national_pivot_distributions.py"]
+        LB --> MASTER["baseis-master.csv"]
+        PD --> WIDE["distributions_wide.xlsx"]
+    end
+
+    subgraph per["Per profile"]
+        YML["profiles/name/\nschools.yml"] --> AN["analyse.py\n--profile name"]
+        AN --> OUT["profiles/name/\nanalysis.xlsx"]
+    end
+
+    MASTER --> AN
+    WIDE --> AN
+```
+
+| Script | Runs | Output |
+|---|---|---|
+| `national_load_baseis.py` | Once per year | `data/baseis-master.csv` |
+| `national_pivot_distributions.py` | Once per year | `output/distributions_wide.xlsx` |
+| `national_plot_distributions.py` | Optional | `output/distributions_plot.png` |
+| `analyse.py --profile name` | Per profile per year | `profiles/name/analysis.xlsx` |
+
+See [quickstart.md](quickstart.md) for the full workflow with download URLs.
 
 
 ## Methodology

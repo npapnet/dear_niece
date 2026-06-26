@@ -8,8 +8,8 @@ Read [`architecture.md`](architecture.md) before making any changes — it is th
 
 ```bash
 uv sync
-uv run python load_baseis.py          # data/baseis-master.csv
-uv run python pivot_distributions.py  # output/distributions_wide.xlsx
-uv run python analyse.py --profile maria  # profiles/maria/analysis.xlsx
-uv run python plot_distributions.py   # output/distributions_plot.png
+uv run python national_load_baseis.py          # data/baseis-master.csv
+uv run python national_pivot_distributions.py  # output/distributions_wide.xlsx
+uv run python analyse.py --profile maria       # profiles/maria/analysis.xlsx
+uv run python national_plot_distributions.py   # output/distributions_plot.png
 ```
