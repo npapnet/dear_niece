@@ -1,5 +1,7 @@
 # Architecture
 
+> This document is the **main entry point** for both Claude Code (`CLAUDE.md`) and Antigravity (`.agents/config.yml`). Start here.
+
 ## Goal
 
 Maintain a running database of Greek university admission thresholds (βάσεις) that can be updated each year by downloading one file, with no structural changes to the code.
@@ -66,22 +68,38 @@ Standardised columns after loading:
 Tiebreak-criteria columns (`ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ` for both first and last place, and the `ΙΣΟΒΑΘ.` count column added in 2025) are dropped on load — they are free-text strings with no analytical value.
 
 
+## Running the pipeline
+
+The three scripts run in sequence; each feeds the next:
+
+```
+load_baseis.py   →  data/baseis-master.csv
+process-pre.py   →  output/wide_df.xlsx
+process-step2.py →  output/step2_analysis.xlsx
+```
+
+All outputs are gitignored and always regenerated from source.
+
+## Key conventions
+
+- **`load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only.
+- **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
+- **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).
+- **Greek text throughout.** All `department`, `institution`, and `position_type` values are in Greek. Use `.str.contains('ΓΕΝIK', na=False)` to filter to the general-admission track.
+- **`data/baseis.xlsx`** is hand-curated for the 7 schools of interest and is never overwritten by any script.
+
 ## Update procedure (each year)
 
-1. Download the new `gel-{YEAR}.xlsx` from the ministry website.
-2. Place it in `data/baseis-raw/`.
-3. Run the loader to regenerate the master:
-   ```
-   python load_baseis.py
-   ```
-   This writes `data/baseis-master.csv`.
-4. Run the analysis pipeline:
-   ```
-   python process-pre.py   # if new student distribution data was added
-   python process-step2.py
+1. Download the new `gel-{YEAR}.xlsx` from the ministry website and place it in `data/baseis-raw/`.
+2. Add the new year's 48 distribution rows to `data/Bro-Maria.xlsx` (sheet `data-StudentsDistribution`).
+3. Run the full pipeline:
+   ```bash
+   uv run python load_baseis.py
+   uv run python process-pre.py
+   uv run python process-step2.py
    ```
 
-No code changes are needed for a routine yearly update.
+No code changes are needed for a routine yearly update. See the [`yearly-update`](.agents/workflows/yearly-update.md) workflow for the full checklist.
 
 
 ## Querying the master
@@ -137,3 +155,31 @@ The `field` date-coercion risk — the main argument for parquet's type safety �
 
 ### `baseis.xlsx` kept as a hand-curated subset
 It holds only the schools relevant to the analysis and is not auto-generated, so it can carry extra annotations (notes, flags) without being overwritten by the loader.
+
+
+## Agent compatibility
+
+This repository is designed to work with both **Claude Code** and **Antigravity** clients.
+
+| Client | Entry point | Config |
+|---|---|---|
+| Claude Code | `CLAUDE.md` | Points here for architecture |
+| Antigravity | `.agents/config.yml` | Points here for architecture |
+
+### Skills
+
+Atomic, single-script operations. Each skill maps directly to one Python script.
+
+| Skill | Script | Trigger |
+|---|---|---|
+| [`load-baseis`](.agents/skills/load-baseis.md) | `load_baseis.py` | New `gel-{YEAR}.xlsx` added to `data/baseis-raw/` |
+| [`process-distributions`](.agents/skills/process-distributions.md) | `process-pre.py` | New rows added to `Bro-Maria.xlsx` |
+| [`run-analysis`](.agents/skills/run-analysis.md) | `process-step2.py` | Either of the above ran, or baseis data updated |
+
+### Workflows
+
+Multi-step sequences that chain skills together.
+
+| Workflow | Description |
+|---|---|
+| [`yearly-update`](.agents/workflows/yearly-update.md) | Full pipeline for a new year: load → distributions → analysis |
