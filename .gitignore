@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Calculated outputs
+# output/
+data/baseis-master.csv
+
+# Excel lock files
+~$*.xlsx
+
+# OS
+.DS_Store
+Thumbs.db

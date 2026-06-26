@@ -27,13 +27,13 @@ df['class'] = df['class'].replace(CLASS_NAMES_DICT)
 
 
 # %%
-# I wnat to create a new column based on marks_bin, by splitting along the '-' and taking the first part conveted as integer
+# create a new column based on marks_bin, by splitting along the '-' and taking the first part conveted as integer
 
 df['marks_bin_start'] = df['marks_bin'].str.split('-').str[0].astype(int)
-# I want to get a subset of the data frame based on a value of the 
+# get a subset of the data frame based on a value of the 
 df.head()
 # %%
-# for a given class and year I want to get the values of the percentage with the marks_bin_start
+# for a given class and year, get the values of the percentage with the marks_bin_start
 def get_percentage_by_class_year(df, class_name, year):
     subset = df[(df['class'] == class_name) & (df['year'] == year)]
     return subset[['marks_bin_start', 'percentage']]
