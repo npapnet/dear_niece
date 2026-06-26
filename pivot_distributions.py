@@ -7,15 +7,16 @@ import pandas as pd
 ROOTDIR = pathlib.Path(__file__).parent
 DATADIR = ROOTDIR / 'data'
 OUTDIR = ROOTDIR / 'output'
-STUDENT_DATA = DATADIR / 'Bro-Maria.xlsx'
+STUDENT_DATA = DATADIR / 'distributions.xlsx'
 
-CLASS_NAMES_DICT = {'Βιολογία':'bio',
-                    'Φυσική':'phys', 
-                    'Χημεία':'chem',
-                    'γλώσσα':'lang',
-                    }
+CLASS_NAMES_DICT = {
+    'Βιολογία': 'bio',
+    'Φυσική':   'phys',
+    'Χημεία':   'chem',
+    'γλώσσα':   'lang',
+}
 
-WIDE_DF_XLSX = OUTDIR / 'wide_df.xlsx'
+DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
 # %%
 df = pd.read_excel(STUDENT_DATA, sheet_name='data-StudentsDistribution')
 df.drop(columns=['Column1', 'excludde'], inplace=True)
@@ -89,5 +90,6 @@ def get_wide_format(df):
 wide_df = get_wide_format(df)
 
 # %%
-wide_df.to_excel(WIDE_DF_XLSX, index=True)
+wide_df.to_excel(DISTRIBUTIONS_WIDE, index=True)
+print(f"Saved → {DISTRIBUTIONS_WIDE}  {wide_df.shape}")
 # %%

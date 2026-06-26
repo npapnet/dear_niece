@@ -9,7 +9,7 @@ Predicting the admission mark threshold for Greek university departments (Biolog
 
 Per-class grade distributions (percentage of students in each score bin), for years 2022–2025.
 
-- Source: `data/Bro-Maria.xlsx`, sheet `data-StudentsDistribution`
+- Source: `data/distributions.xlsx`, sheet `data-StudentsDistribution`
 - 4 subjects: Biology (bio), Physics (phys), Chemistry (chem), Greek Language (lang)
 - 12 score bins per subject per year: 0–4.9, 5–9.9, 10–10.9, 11–11.9, …, 19–20.0
 - Data origin:
@@ -33,8 +33,9 @@ Minimum admission scores (on a 0–20,000 scale) per school and year.
 
 | Script | Input | Output | Purpose |
 |---|---|---|---|
-| `process-pre.py` | `data/Bro-Maria.xlsx` | `output/wide_df.xlsx` | Pivot distributions to wide format (rows=year, cols=subject_bin) |
-| `process-step2.py` | `output/wide_df.xlsx` | `output/step2_analysis.xlsx` | Percentile analysis and year-over-year shifts |
+| `pivot_distributions.py` | `data/distributions.xlsx` | `output/distributions_wide.xlsx` | Pivot distributions to wide format (rows=year, cols=subject_bin) |
+| `analyse.py` | `output/distributions_wide.xlsx` | `output/analysis.xlsx` | Percentile analysis and year-over-year shifts |
+| `plot_distributions.py` | `output/distributions_wide.xlsx` | `output/distributions_plot.png` | Complementary CDF plots per subject |
 
 
 ## Methodology

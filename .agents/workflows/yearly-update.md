@@ -3,7 +3,7 @@ name: yearly-update
 description: >
   Full pipeline for incorporating a new year of data. Covers both the
   admission threshold side (new gel-{YEAR}.xlsx) and the grade distribution
-  side (updated Bro-Maria.xlsx). Run after each year's results are published.
+  side (updated distributions.xlsx). Run after each year's results are published.
 inputs:
   - name: year
     description: The new year being added (e.g. 2026)
@@ -15,10 +15,8 @@ inputs:
 Before running this workflow:
 
 1. Download `gel-{year}.xlsx` from the ministry website and place it in `data/baseis-raw/`.
-2. Add the new year's student grade distribution rows to `data/Bro-Maria.xlsx`
+2. Add the new year's student grade distribution rows to `data/distributions.xlsx`
    (sheet `data-StudentsDistribution`) — 48 rows: 12 bins × 4 subjects.
-3. Optionally update `data/baseis.xlsx` with the new year's thresholds for the
-   7 schools of interest.
 
 ## Steps
 
@@ -30,32 +28,45 @@ Before running this workflow:
 uv run python load_baseis.py
 ```
 
-Verify output: `data/baseis-master.csv` should now contain rows for `{year}`.
+Verify: `data/baseis-master.csv` contains rows for `{year}`.
 
 ---
 
 ### 2. Rebuild grade distribution pivot
 
-**Skill:** `process-distributions`
+**Skill:** `pivot-distributions`
 
 ```bash
-uv run python process-pre.py
+uv run python pivot_distributions.py
 ```
 
-Verify output: `output/wide_df.xlsx` index should now include `{year}`.
+Verify: `output/distributions_wide.xlsx` index includes `{year}`.
 
 ---
 
 ### 3. Run percentile analysis
 
-**Skill:** `run-analysis`
+**Skill:** `run-profile-analysis`
 
 ```bash
-uv run python process-step2.py
+uv run python analyse.py --profile <name>
 ```
 
-Verify output: `output/step2_analysis.xlsx` — check the `percentile_scores` and
-`high_end_metric` sheets to see where the new year falls relative to prior years.
+Verify: `profiles/{name}/analysis.xlsx` — check `percentile_scores` and `high_end_metric`
+to see where the new year falls relative to prior years.
+
+---
+
+### 4. Regenerate distribution plots
+
+**Skill:** `plot-distributions`
+
+```bash
+uv run python plot_distributions.py
+```
+
+Verify: `output/distributions_plot.png` — confirm the new year's line is visible
+and positioned as expected relative to prior years.
 
 ---
 

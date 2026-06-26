@@ -11,4 +11,4 @@ environment:
   working_directory: ./  # all script paths are relative to repo root
   notes:
     - "All outputs (output/, data/baseis-master.csv) are gitignored and regenerated at runtime"
-    - "Source data files (data/baseis-raw/*.xlsx, data/Bro-Maria.xlsx) must be present before any skill runs"
+    - "Source data files (data/baseis-raw/*.xlsx, data/distributions.xlsx) must be present before any skill runs"

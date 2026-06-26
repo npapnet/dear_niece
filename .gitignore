@@ -10,6 +10,8 @@ __pycache__/
 # output/
 data/baseis-master.csv
 
+profiles/*/analysis.xlsx
+
 # Excel lock files
 ~$*.xlsx
 
