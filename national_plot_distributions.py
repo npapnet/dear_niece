@@ -17,7 +17,7 @@ import pandas as pd
 # %%
 ROOTDIR = pathlib.Path(__file__).parent
 OUTDIR = ROOTDIR / 'output'
-DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
+DISTRIBUTIONS_WIDE = ROOTDIR / 'data' / '_pipeline_cache' / 'distributions_wide.xlsx'
 PLOT_OUTPUT = OUTDIR / 'distributions_plot.png'
 
 CLASSES = ['bio', 'phys', 'chem', 'lang']
@@ -98,6 +98,10 @@ def plot_distributions(wide_df: pd.DataFrame, from_bin: int = PLOT_FROM_BIN) -> 
 
 # %%
 if __name__ == '__main__':
+    if not DISTRIBUTIONS_WIDE.exists():
+        raise FileNotFoundError(
+            f"{DISTRIBUTIONS_WIDE} not found — run national_pivot_distributions.py first"
+        )
     wide_df = pd.read_excel(DISTRIBUTIONS_WIDE, sheet_name=0, index_col=0)
     wide_df.index = wide_df.index.astype(int)
     print(f"Loaded distributions_wide: {wide_df.shape}, years={wide_df.index.tolist()}")

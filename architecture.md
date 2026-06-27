@@ -35,10 +35,11 @@ data/
     gel-2025.xlsx
     ...
   distributions.xlsx       # national student mark distributions (rename from Bro-Maria.xlsx)
-  baseis-master.csv        # combined long-format master (auto-generated, do not edit)
+  _pipeline_cache/         # gitignored — generated intermediates, never edit by hand
+    baseis-master.csv      # combined long-format master
+    distributions_wide.xlsx  # grade distribution pivot
 
-output/                    # all generated — gitignored
-  distributions_wide.xlsx  # grade distribution pivot
+output/                    # gitignored — final deliverables
   distributions_plot.png   # complementary CDF plots per subject
 
 profiles/
@@ -47,9 +48,9 @@ profiles/
     analysis-2025.xlsx     # gitignored output — profile-scoped analysis (year matches prediction_year)
 
 national_load_baseis.py             # loader module — the only place that knows the raw baseis format
-national_pivot_distributions.py     # reads distributions.xlsx → output/distributions_wide.xlsx
-analyse.py                 # reads distributions_wide.xlsx → profiles/{name}/analysis-{YEAR}.xlsx
-national_plot_distributions.py      # reads distributions_wide.xlsx → output/distributions_plot.png
+national_pivot_distributions.py     # reads distributions.xlsx → data/_pipeline_cache/distributions_wide.xlsx
+analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-{YEAR}.xlsx
+national_plot_distributions.py      # reads _pipeline_cache/distributions_wide.xlsx → output/distributions_plot.png
 ```
 
 
@@ -88,8 +89,8 @@ Tiebreak-criteria columns (`ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ` for both firs
 The scripts run in sequence; each feeds the next:
 
 ```
-national_load_baseis.py          →  data/baseis-master.csv
-national_pivot_distributions.py  →  output/distributions_wide.xlsx
+national_load_baseis.py          →  data/_pipeline_cache/baseis-master.csv
+national_pivot_distributions.py  →  data/_pipeline_cache/distributions_wide.xlsx
 analyse.py              →  profiles/{name}/analysis-{YEAR}.xlsx
 national_plot_distributions.py   →  output/distributions_plot.png
 ```
@@ -124,7 +125,7 @@ No code changes are needed for a routine yearly update. See the [`yearly-update`
 ```python
 import pandas as pd
 
-master = pd.read_csv('data/baseis-master.csv', encoding='utf-8-sig')
+master = pd.read_csv('data/_pipeline_cache/baseis-master.csv', encoding='utf-8-sig')
 
 # Filter to the general-admission track and biology-accessible departments
 gel = master[

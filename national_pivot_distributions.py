@@ -16,7 +16,7 @@ CLASS_NAMES_DICT = {
     'γλώσσα':   'lang',
 }
 
-DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
+DISTRIBUTIONS_WIDE = ROOTDIR / 'data' / '_pipeline_cache' / 'distributions_wide.xlsx'
 # %%
 df = pd.read_excel(STUDENT_DATA, sheet_name='data-StudentsDistribution')
 df.drop(columns=['Column1', 'excludde'], inplace=True)
@@ -90,6 +90,7 @@ def get_wide_format(df):
 wide_df = get_wide_format(df)
 
 # %%
+DISTRIBUTIONS_WIDE.parent.mkdir(exist_ok=True)
 wide_df.to_excel(DISTRIBUTIONS_WIDE, index=True)
 print(f"Saved → {DISTRIBUTIONS_WIDE}  {wide_df.shape}")
 # %%

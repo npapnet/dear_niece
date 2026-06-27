@@ -133,10 +133,11 @@ def build_master(raw_dir: str | pathlib.Path) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
-    import sys
-    raw_dir = pathlib.Path(__file__).parent / 'data' / 'baseis-raw'
+    root = pathlib.Path(__file__).parent
+    raw_dir = root / 'data' / 'baseis-raw'
     master = build_master(raw_dir)
     print(f'Loaded {len(master):,} rows across years: {sorted(master["year"].unique())}')
-    out = pathlib.Path(__file__).parent / 'data' / 'baseis-master.csv'
+    out = root / 'data' / '_pipeline_cache' / 'baseis-master.csv'
+    out.parent.mkdir(exist_ok=True)
     master.to_csv(out, index=False, encoding='utf-8-sig')
     print(f'Saved → {out}')

@@ -8,6 +8,7 @@ __pycache__/
 
 # Calculated outputs
 output/
+data/_pipeline_cache/
 
 profiles/*/analysis-*.xlsx
 

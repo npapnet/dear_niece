@@ -18,8 +18,9 @@ import pathlib
 # %%
 ROOTDIR = pathlib.Path(__file__).parent
 DATADIR = ROOTDIR / 'data'
-OUTDIR = ROOTDIR / 'output'
-DISTRIBUTIONS_WIDE = OUTDIR / 'distributions_wide.xlsx'
+CACHE_DIR = DATADIR / '_pipeline_cache'
+BASEIS_MASTER = CACHE_DIR / 'baseis-master.csv'
+DISTRIBUTIONS_WIDE = CACHE_DIR / 'distributions_wide.xlsx'
 
 CLASSES = ['bio', 'phys', 'chem', 'lang']
 BINS = [0, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
@@ -33,7 +34,13 @@ profile_dir = ROOTDIR / 'profiles' / args.profile
 _profile_cfg = yaml.safe_load((profile_dir / 'schools.yml').read_text())
 schools = _profile_cfg['schools']
 prediction_year = int(_profile_cfg['prediction_year'])
-master = pd.read_csv(ROOTDIR / 'data' / 'baseis-master.csv', encoding='utf-8-sig')
+
+for _cache_file in (BASEIS_MASTER, DISTRIBUTIONS_WIDE):
+    if not _cache_file.exists():
+        _hint = 'national_load_baseis.py' if 'baseis' in _cache_file.name else 'national_pivot_distributions.py'
+        raise FileNotFoundError(f"{_cache_file.name} not found — run {_hint} first")
+
+master = pd.read_csv(BASEIS_MASTER, encoding='utf-8-sig')
 _sc = master['school_code'].astype('Int64').astype(str).str.zfill(4)
 baseis_df = master.loc[_sc.isin(schools), ['year', 'school_code', 'institution', 'department', 'entry']].copy()
 baseis_df['school_code'] = _sc[baseis_df.index]
@@ -45,6 +52,14 @@ profile_dir.mkdir(parents=True, exist_ok=True)
 wide_df = pd.read_excel(DISTRIBUTIONS_WIDE, sheet_name=0, index_col=0)
 wide_df.index = wide_df.index.astype(int)
 wide_df = wide_df[wide_df.index <= prediction_year]
+
+if prediction_year not in wide_df.index:
+    raise ValueError(
+        f"prediction_year={prediction_year} requires distributions data for that year, "
+        f"but distributions_wide only covers up to {wide_df.index.max()}. "
+        f"Add the {prediction_year} rows to data/distributions.xlsx and re-run national_pivot_distributions.py."
+    )
+
 print("Years:", wide_df.index.tolist())
 print("Shape:", wide_df.shape)
 
