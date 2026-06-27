@@ -75,25 +75,33 @@ def _build_columns(ws) -> list[str]:
 def _extract_year(ws) -> int:
     """Read the year from the title cell (row 1, always ends with the 4-digit year)."""
     title = ws.cell(1, 1).value or ''
-    match = re.search(r'(\d{4})', title)
+    match = re.search(r'(\d{4})\s*$', title)
     if not match:
         raise ValueError(f'Cannot extract year from title: {title!r}')
     return int(match.group(1))
 
 
-def load_baseis_raw(filepath: str | pathlib.Path) -> pd.DataFrame:
+def load_baseis_raw(filepath: str | pathlib.Path, year: int) -> pd.DataFrame:
     """
     Load one raw baseis xlsx file into a tidy DataFrame.
 
+    ``year`` is the authoritative year and must come from the filename
+    (contract: ``gel-YYYY.xlsx``).  The title cell is cross-checked against
+    it; a mismatch raises ``AssertionError`` immediately so a misnamed file
+    cannot silently corrupt the master.
+
     Returns a DataFrame with English column names (see COLUMN_MAP) plus a
-    `year` column extracted from the file title.  Columns not present in a
-    given year (e.g. `vacancies` before 2025) are silently absent.
-    Fully-empty rows are dropped.
+    ``year`` column.  Columns not present in a given year (e.g. ``vacancies``
+    before 2025) are silently absent.  Fully-empty rows are dropped.
     """
     wb = openpyxl.load_workbook(filepath, data_only=True)
     ws = wb.active
 
-    year = _extract_year(ws)
+    title_year = _extract_year(ws)
+    assert title_year == year, (
+        f"Filename year {year} does not match title year {title_year} "
+        f"in {pathlib.Path(filepath).name!r} — rename the file or fix the title."
+    )
     cols = _build_columns(ws)
 
     data = [
@@ -122,9 +130,9 @@ def build_master(raw_dir: str | pathlib.Path) -> pd.DataFrame:
     files = sorted(raw_dir.glob('gel-*.xlsx'))
     frames = []
     for i, f in enumerate(files, 1):
-        year = f.stem.split('-')[1]
+        year = int(f.stem.split('-')[1])
         print(f'  {year}  ({i}/{len(files)})', end='\n', flush=False)
-        frames.append(load_baseis_raw(f))
+        frames.append(load_baseis_raw(f, year))
     print()
     master = pd.concat(frames, ignore_index=True)
     # put year first for readability

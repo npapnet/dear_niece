@@ -39,7 +39,7 @@ def _col_names():
 
 
 def _validate(weights):
-    """Reject unknown classes/bins and non-numeric weights with a clear error."""
+    """Reject unknown classes/bins, non-numeric weights, and missing classes with a clear error."""
     for cls, mapping in weights.items():
         if cls not in CLASSES:
             raise ValueError(f"unknown class {cls!r} in weights; expected one of {CLASSES}")
@@ -48,6 +48,9 @@ def _validate(weights):
                 raise ValueError(f"unknown bin {b!r} for class {cls!r}; expected one of {BINS}")
             if isinstance(w, bool) or not isinstance(w, (int, float)):
                 raise ValueError(f"weight for {cls}_{b:02d} must be numeric, got {w!r}")
+    for cls in CLASSES:
+        if cls not in weights:
+            raise ValueError(f"class {cls!r} missing from weights; all classes must be present: {CLASSES}")
 
 
 def load_weights(profile_cfg, default_path=METRIC_WEIGHTS_YML):
@@ -116,28 +119,28 @@ def weights_hash(weights):
     return hashlib.sha256(arr.tobytes()).hexdigest()[:6]
 
 
-def persist_weights(weights, hash=None, weights_dir=WEIGHTS_DIR):
+def persist_weights(weights, weight_hash=None, weights_dir=WEIGHTS_DIR):
     """Persist a weight set to the content-addressable store; return its hash.
 
     Writes two files under ``weights_dir`` (created if needed), keyed by the
     weight hash:
 
-    - ``{hash}.npy`` — the canonical ``float64`` 48-vector (``weight_vector``
+    - ``{weight_hash}.npy`` — the canonical ``float64`` 48-vector (``weight_vector``
       order): the exact array ``weights_hash`` digests and the form the future
       NN emits/consumes, so reload -> rehash is stable.
-    - ``{hash}.yml`` — the sparse authored mapping, for human readability.
+    - ``{weight_hash}.yml`` — the sparse authored mapping, for human readability.
 
     The store is immutable per hash: existing files are left untouched. This is
     the drop-zone the future trainer writes into.
     """
-    if hash is None:
-        hash = weights_hash(weights)
+    if weight_hash is None:
+        weight_hash = weights_hash(weights)
     weights_dir = pathlib.Path(weights_dir)
     weights_dir.mkdir(parents=True, exist_ok=True)
-    npy_path = weights_dir / f'{hash}.npy'
-    yml_path = weights_dir / f'{hash}.yml'
+    npy_path = weights_dir / f'{weight_hash}.npy'
+    yml_path = weights_dir / f'{weight_hash}.yml'
     if not npy_path.exists():
         np.save(npy_path, weight_vector(weights).to_numpy(dtype='float64'))
     if not yml_path.exists():
         yml_path.write_text(yaml.safe_dump(weights, sort_keys=True), encoding='utf-8')
-    return hash
+    return weight_hash

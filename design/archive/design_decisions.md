@@ -37,3 +37,15 @@ The `field` date-coercion risk — the main argument for parquet's type safety �
 ## `baseis.xlsx` kept as a hand-curated subset
 
 It holds only the schools relevant to the analysis and is not auto-generated, so it can carry extra annotations (notes, flags) without being overwritten by the loader.
+
+## Filename as authoritative year source in the baseis loader
+
+`gel-YYYY.xlsx` is the contract: the year is read from the filename and passed explicitly into `load_baseis_raw`. `_extract_year` (title-cell regex) is retained only as a cross-check — a mismatch raises `AssertionError` immediately. Rationale: the title cell is ministry-authored free text whose format can change; the filename is under our control and already enforced by the `gel-*.xlsx` glob pattern. The cross-check catches the case where a file is saved under the wrong name.
+
+## Consecutive distribution years are required; gaps are an error
+
+`load_wide_df` rejects a `distributions_wide.xlsx` that has any gap in its year index (e.g. 2023 present, 2024 absent, 2025 present). Rationale: `.diff()` is purely positional — it computes `row[i] - row[i-1]` regardless of the year labels. A gap silently produces a diff that spans two calendar years but is labelled as a one-year shift, biasing both the metric and the regression. Forcing consecutive years keeps the arithmetic meaning of every diff unambiguous.
+
+## Missing distribution bins are NaN, not zero
+
+`get_wide_format` in `national_pivot_distributions.py` no longer passes `fill_value=0` to `pivot_table`. A bin/year combination absent from the source data becomes `NaN` rather than `0.0`. Rationale: a genuine zero percentage (no students scored in that bin) and a missing observation are semantically different. Imputing `0.0` made the weighted metric treat absent data as real evidence, silently biasing scores for subjects not administered in a given year.

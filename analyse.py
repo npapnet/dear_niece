@@ -78,6 +78,20 @@ def load_wide_df(path, prediction_year):
             f"but distributions_wide only covers up to {wide_df.index.max()}. "
             f"Add the {prediction_year} rows to data/distributions.xlsx and re-run national_pivot_distributions.py."
         )
+    if len(wide_df) < 2:
+        raise ValueError(
+            f"distributions_wide must contain at least 2 years of data to compute "
+            f"year-over-year shifts, but only {len(wide_df)} year(s) found (up to {prediction_year})."
+        )
+    years = sorted(wide_df.index.tolist())
+    for i in range(1, len(years)):
+        if years[i] != years[i - 1] + 1:
+            raise ValueError(
+                f"distributions_wide has a gap: year {years[i - 1] + 1} is missing "
+                f"(found {years[i - 1]} followed by {years[i]}). "
+                f"Add the missing year(s) to data/distributions.xlsx and re-run "
+                f"national_pivot_distributions.py."
+            )
     return wide_df
 
 
@@ -88,6 +102,7 @@ def read_master(path):
 
 def load_baseis_df(master, schools, prediction_year):
     """Filter the master to the profile's schools and to years < prediction_year."""
+    schools = [str(s).zfill(4) for s in schools]
     _sc = master['school_code'].astype('Int64').astype(str).str.zfill(4)
     baseis_df = master.loc[_sc.isin(schools), ['year', 'school_code', 'institution', 'department', 'entry']].copy()
     baseis_df['school_code'] = _sc[baseis_df.index]
@@ -98,7 +113,7 @@ def load_baseis_df(master, schools, prediction_year):
 def compute_baseis(baseis_df):
     """Return (baseis_wide, baseis_shift, baseis_detail)."""
     baseis_wide = baseis_df.pivot_table(index='year', columns='school_code', values='entry', aggfunc='max')
-    baseis_shift = baseis_wide.diff().dropna()
+    baseis_shift = baseis_wide.diff().dropna(how='all')
     baseis_detail = (
         baseis_df.groupby(['year', 'school_code'])
         .agg(institution=('institution', 'first'),
@@ -264,7 +279,7 @@ def build_report(
     # Weights table: rows = bins that carry any weight, cols = subjects
     weight_bins = sorted({b for w in metric_weights.values() for b in w})
     weights_table = pd.DataFrame(
-        {cls: {b: metric_weights[cls].get(b, '') for b in weight_bins} for cls in classes},
+        {cls: {b: metric_weights.get(cls, {}).get(b, '') for b in weight_bins} for cls in classes},
         index=weight_bins,
     )
     weights_table.index.name = 'bin'
