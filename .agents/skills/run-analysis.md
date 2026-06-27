@@ -1,44 +1,30 @@
 ---
 name: run-analysis
 description: >
-  Run the percentile analysis for a named profile and produce profiles/{name}/analysis.xlsx.
-  Requires output/distributions_wide.xlsx (from pivot-distributions) to exist first.
+  DEPRECATED — superseded by run-profile-analysis. analyse.py requires --profile,
+  so there is no profile-less analysis path. Use run-profile-analysis instead.
 inputs:
   - name: profile
     description: Profile name — must match a directory under profiles/ containing schools.yml
     required: true
-  - name: distributions_wide
-    description: Path to the wide-format distribution pivot
-    required: false
-    default: output/distributions_wide.xlsx
 outputs:
   - name: analysis
-    description: profiles/{name}/analysis.xlsx — seven sheets covering percentile scores, shifts, metric, baseis trend, and baseis detail
+    description: profiles/{name}/analysis-{year}-{hash}.xlsx (see run-profile-analysis)
 ---
 
-## What this skill does
+## Deprecated
 
-Calls `analyse.py --profile <name>`, which produces seven sheets in `profiles/{name}/analysis.xlsx`:
+This skill is kept only as a redirect. `analyse.py` always runs against a profile
+(`--profile` is required), so the historical "run-analysis without a profile" idea no
+longer exists.
 
-| Sheet | Contents |
-|---|---|
-| `percentile_scores` | Score bin at 85th/90th/95th percentile per subject per year |
-| `percentile_shifts` | Year-over-year change in those percentile bins |
-| `high_end_metric` | Weighted sum of high-end bins |
-| `bin_diffs` | Raw year-over-year percentage change per bin |
-| `baseis` | Admission thresholds in wide format (rows=year, cols=school_code) |
-| `baseis_shifts` | Year-over-year change in admission thresholds |
-| `baseis_detail` | Long-format baseis: year, school_code, institution, department, entry |
+Use **[`run-profile-analysis`](run-profile-analysis.md)** — it documents the current
+inputs (`data/_pipeline_cache/distributions_wide.xlsx`,
+`data/_pipeline_cache/baseis-master.csv`), the seven workbook sheets, the markdown
+report, and the weight-set hash suffix on the outputs.
 
 ## Command
 
 ```bash
 uv run python analyse.py --profile <name>
 ```
-
-## Notes
-
-- The weighted metric uses bins ≥14 for `lang`, ≥16 for `phys`, ≥18 for `bio`/`chem`,
-  with increasing weights toward higher bins.
-- A positive percentile shift means that year's exams were harder (top students scored higher).
-- 2025 metric shift is −14.85, similar to 2024's −16.90, suggesting another drop in βάσεις.

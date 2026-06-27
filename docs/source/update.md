@@ -26,8 +26,8 @@ flowchart TD
     E --> G["data/_pipeline_cache/distributions_wide.xlsx\nupdated"]
     F --> H["uv run python analyse.py\n--profile NAME"]
     G --> H
-    H --> I["profiles/NAME/analysis-YEAR.xlsx\nwith updated predictions"]
-    H --> R["profiles/NAME/report-YEAR.md\nmarkdown summary"]
+    H --> I["profiles/NAME/analysis-YEAR-HASH.xlsx\nwith updated predictions"]
+    H --> R["profiles/NAME/report-YEAR-HASH.md\nmarkdown summary"]
     G --> J["uv run python national_plot_distributions.py"]
     J --> K["output/distributions_plot.png\nupdated"]
 ```
@@ -77,10 +77,12 @@ Repeat the `analyse.py` call for each profile.
 
 ## Verifying the update
 
-The quickest sanity check is `report-{prediction_year}.md` — open it in any markdown
-viewer and confirm the prediction period label and the predicted entries look reasonable.
+The quickest sanity check is `report-{prediction_year}-{hash}.md` (the hash is printed
+at the end of the run; glob `report-{prediction_year}-*.md` to find it) — open it in any
+markdown viewer and confirm the prediction period label and the predicted entries look
+reasonable.
 
-For a deeper check, open `analysis-{prediction_year}.xlsx` and verify:
+For a deeper check, open `analysis-{prediction_year}-{hash}.xlsx` and verify:
 
 1. **`high_end_metric` sheet** — the new year appears as a row with a valid `metric`
    and `metric_shift` value. If `metric_shift` is NaN, the year was added but there

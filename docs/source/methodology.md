@@ -69,24 +69,31 @@ Where:
 
 The result is a dimensionless number (a weighted sum of percentages).
 
-### The `METRIC_WEIGHTS` table
+### The metric weights
 
-This is the single place in the code — `analyse.py` — that encodes the per-subject
-sensitivity of the metric:
+The weights are **configuration, not code**. The global defaults live in
+`metric_weights.yml` at the repo root, authored as a sparse `{subject: {bin: weight}}`
+mapping (mirrored in code by `DEFAULT_WEIGHTS` in `metrics.py`):
 
-```python
-METRIC_WEIGHTS = {
-    'bio':  {18: 0, 19: 1},
-    'chem': {18: 0, 19: 1},
-    'lang': {14: 0, 15: 1, 16: 2, 17: 3, 18: 4, 19: 5},
-    'phys': {16: 0, 17: 1, 18: 2, 19: 3},
-}
+```yaml
+bio:  {18: 0.0, 19: 1.0}
+chem: {18: 0.0, 19: 1.0}
+lang: {14: 0.0, 15: 1.0, 16: 2.0, 17: 3.0, 18: 4.0, 19: 5.0}
+phys: {16: 0.0, 17: 1.0, 18: 2.0, 19: 3.0}
 ```
 
-Each entry is `bin_label: weight`. **A weight of 0 marks the lower observation boundary**
-for that subject: the bin is in scope and can be promoted to a non-zero weight trivially,
-but currently contributes nothing to the metric. Bins below the lowest key are not tracked
-at all.
+Each entry is `bin_label: weight`. Weights are **real-valued** (floats accepted); the
+integers shown are just the current defaults. **A weight of 0 marks the lower
+observation boundary** for that subject: the bin is in scope and can be promoted to a
+non-zero weight trivially, but currently contributes nothing to the metric. Bins below
+the lowest key are not tracked at all.
+
+`metrics.py` is the single owner of the weight logic. It materializes the sparse YAML
+into a dense `float64` vector over the 48 `{subject}_{bin:02d}` columns, computes the
+metric as a name-aligned dot product (so column order in the distribution frame cannot
+silently misalign it), and hashes the weight set. That hash suffixes the output
+filenames and keys the content-addressable `weights/` store. A profile can override the
+weights per-subject — see {doc}`profiles`.
 
 ### Per-subject rationale
 
@@ -186,7 +193,7 @@ flowchart TD
     C --> J["last known entry\nper school"]
     I --> K["predicted entry\n= last entry + predicted shift"]
     J --> K
-    K --> L["predictions sheet\nin analysis.xlsx"]
+    K --> L["predictions sheet\nin the analysis workbook"]
 ```
 
 ### Least squares with `numpy`
@@ -268,15 +275,19 @@ quota adjustments), and individual school factors not captured here.
 
 ## Modifying the metric
 
-All sensitivity lives in `METRIC_WEIGHTS` in `analyse.py`. No other file needs to change.
+The weights are configuration. Edit `metric_weights.yml` (repo root) to change the
+**global** default for every profile, or add a `metric_weights:` block to a profile's
+`schools.yml` to override **just that profile** (per-subject replace — see
+{doc}`profiles`). No Python code needs to change. Each distinct weight set produces a
+distinct output `{hash}`, so changing weights never overwrites a previous run's output.
 
 ### Changing a weight
 
 Increase a weight to give that bin more influence over the metric. For example, to make
 Biology more sensitive to the 18–19 bracket:
 
-```python
-'bio': {18: 1, 19: 3},
+```yaml
+bio: {18: 1.0, 19: 3.0}
 ```
 
 This triples the weight of the top bin and adds the 18–19 bin as a minor contributor.
@@ -285,8 +296,8 @@ This triples the weight of the top bin and adds the 18–19 bin as a minor contr
 
 Add lower bins to capture a wider scoring tail. For Chemistry, to watch from bin 17:
 
-```python
-'chem': {17: 0, 18: 1, 19: 2},
+```yaml
+chem: {17: 0.0, 18: 1.0, 19: 2.0}
 ```
 
 Bin 17 carries weight 0 (observation boundary only); bins 18 and 19 contribute 1× and 2×.
@@ -296,8 +307,8 @@ Bin 17 carries weight 0 (observation boundary only); bins 18 and 19 contribute 1
 Remove bins that add noise. If Physics bin 17 turns out to be uncorrelated with threshold
 changes, drop it:
 
-```python
-'phys': {16: 0, 18: 2, 19: 3},
+```yaml
+phys: {16: 0.0, 18: 2.0, 19: 3.0}
 ```
 
 ### Weight-of-zero convention

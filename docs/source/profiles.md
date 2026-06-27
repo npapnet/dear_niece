@@ -9,14 +9,18 @@ profile filters and analyses only the schools that matter to that person.
 ```
 profiles/
   maria/
-    schools.yml            # committed — prediction year + school codes
-    analysis-2025.xlsx     # gitignored — generated workbook
-    report-2025.md         # gitignored — generated markdown summary
+    schools.yml                  # committed — prediction year + school codes (+ optional weights)
+    analysis-2025-{hash}.xlsx    # gitignored — generated workbook
+    report-2025-{hash}.md        # gitignored — generated markdown summary
   manou2026/
     schools.yml
-    analysis-2026.xlsx
-    report-2026.md
+    analysis-2026-{hash}.xlsx
+    report-2026-{hash}.md
 ```
+
+The `{hash}` is a short identifier of the metric weight set used for the run (see
+{doc}`update` and {doc}`methodology`), so runs with different weights coexist
+in the same folder without clobbering one another.
 
 ## `schools.yml` format
 
@@ -32,8 +36,10 @@ schools:
 - Distribution diffs are computed up to `prediction_year − (prediction_year−1)`.
 - Βάσεις data is used only up to `prediction_year − 1`, since the upcoming year's
   thresholds are not yet published when the prediction is made.
-- Both output files are named after this year: `analysis-{prediction_year}.xlsx`
-  and `report-{prediction_year}.md`.
+- Both output files are named after this year **and the weight-set hash**:
+  `analysis-{prediction_year}-{hash}.xlsx` and `report-{prediction_year}-{hash}.md`.
+  The hash is printed at the end of the run; to find the latest report, glob
+  `report-{prediction_year}-*.md`.
 
 To predict for a different year, change only this field — no code changes are needed.
 
@@ -42,10 +48,30 @@ YAML from interpreting leading zeros as octal. The school code is the stable
 cross-year identifier — department names and institution abbreviations drift across
 years, but the code does not.
 
+### Overriding the metric weights (optional)
+
+By default the metric weights come from the repo-root `metric_weights.yml`. A
+profile can override them per-subject by adding an optional `metric_weights:` block;
+named subjects fully replace the global mapping for that subject, while unnamed
+subjects fall back to the default. Weights are real-valued (floats accepted):
+
+```yaml
+prediction_year: 2025
+metric_weights:          # optional; per-subject replace
+  phys: {18: 0.7, 19: 1.3}
+schools:
+  - "0302"
+  - "0295"
+```
+
+Because the weight set determines the output `{hash}`, an override produces a
+distinct pair of output files — the default-weights outputs are not overwritten.
+See {doc}`methodology` for what the weights mean.
+
 ## Finding school codes
 
 The easiest way to find codes is to run `national_load_baseis.py` once and inspect
-`data/baseis-master.csv`. Filter by institution name or department keywords:
+`data/_pipeline_cache/baseis-master.csv`. Filter by institution name or department keywords:
 
 ```python
 import pandas as pd
@@ -86,12 +112,12 @@ print(field3[['school_code', 'institution', 'department']].drop_duplicates())
    ```
 
 Two files are created automatically:
-- `profiles/NAME/analysis-{prediction_year}.xlsx` — full workbook with metric, baseis and prediction sheets
-- `profiles/NAME/report-{prediction_year}.md` — markdown summary with weights, distribution diffs, baseis shifts and predictions
+- `profiles/NAME/analysis-{prediction_year}-{hash}.xlsx` — full workbook with metric, baseis and prediction sheets
+- `profiles/NAME/report-{prediction_year}-{hash}.md` — markdown summary with weights, distribution diffs, baseis shifts and predictions
 
 ## Reading the outputs
 
-The quickest way to review results is `report-{prediction_year}.md` — a single markdown
+The quickest way to review results is `report-{prediction_year}-{hash}.md` — a single markdown
 file containing four sections:
 
 | Section | Contents |
@@ -101,6 +127,6 @@ file containing four sections:
 | **Baseis Shifts** | Year-over-year change in admission thresholds per school |
 | **Predictions** | Predicted shift, last known threshold, and predicted threshold for each school |
 
-The full workbook (`analysis-{prediction_year}.xlsx`) contains the same data plus the
-raw regression coefficients and long-format detail sheets. See {doc}`methodology` for
-a full explanation of how predictions are calculated.
+The full workbook (`analysis-{prediction_year}-{hash}.xlsx`) contains the same data plus the
+raw regression coefficients, the `metric_weights` sheet, and long-format detail sheets.
+See {doc}`methodology` for a full explanation of how predictions are calculated.

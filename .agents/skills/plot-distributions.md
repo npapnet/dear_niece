@@ -8,7 +8,7 @@ inputs:
   - name: distributions_wide
     description: Path to the wide-format distribution pivot
     required: false
-    default: output/distributions_wide.xlsx
+    default: data/_pipeline_cache/distributions_wide.xlsx
   - name: from_bin
     description: Lowest score bin to include on the x-axis (default 16)
     required: false
@@ -22,7 +22,7 @@ outputs:
 
 Calls `national_plot_distributions.py`, which:
 
-1. Loads `output/distributions_wide.xlsx`.
+1. Loads `data/_pipeline_cache/distributions_wide.xlsx`.
 2. For each subject (bio, phys, chem, lang) and year, computes
    `P[score ≥ threshold]` for all bins from `from_bin` upward — the
    complementary CDF of the high-scoring tail.

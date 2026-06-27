@@ -9,9 +9,13 @@ __pycache__/
 # Calculated outputs
 output/
 data/_pipeline_cache/
+weights/
 
 profiles/*/analysis-*.xlsx
 profiles/*/report-*.md
+
+# vscode
+.vscode
 
 # Excel lock files
 ~$*.xlsx

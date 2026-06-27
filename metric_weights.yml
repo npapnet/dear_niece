@@ -1,0 +1,8 @@
+# Default high-end metric weights (global). Mirrors DEFAULT_WEIGHTS in metrics.py.
+# Weights are real-valued (floats accepted); explicit 0s mark bins "considered
+# but unweighted". Per-profile overrides live in profiles/<name>/schools.yml
+# under a metric_weights: block (per-class replace).
+bio:  {18: 0.0, 19: 1.0}
+chem: {18: 0.0, 19: 1.0}
+lang: {14: 0.0, 15: 1.0, 16: 2.0, 17: 3.0, 18: 4.0, 19: 5.0}
+phys: {16: 0.0, 17: 1.0, 18: 2.0, 19: 3.0}
