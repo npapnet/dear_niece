@@ -5,6 +5,10 @@
 
 This section is for completed tasks which have not yet been thoroughly documented or reflected in the documentation.
 - [x] UT Testing.
+- [x] FEAT: analyse contains METRIC_WEIGHTS (=# --- Weighted high-end metric --- ) which converts the bins_diff into a single metric (in a sense this is a type of neural network that I could try to train for each individual school_code). In any case this is parameter that should be exposed outside of the code, so that it may be changed. 
+     - [x]FEAT: weights can be saved globally or with `schools.yml` also (or at least overriden)
+     - [x]maybe another approach (more intuitive and straightforward to compute -- array multiplication and sum) using a df with all the bins instead of a dictionary with only a few bins might be better (even though its mostly populated with zero values).
+- [x] to differentiate between measures, you need to add the weights in the analysis, suffix a hash which comes from the weights list. 
 
 # Backlog
 
@@ -18,10 +22,7 @@ This for generic tasks.
 ## Metrics improvements 
 
 - [ ]Alternative method to use the already established bin_diffs (make a note that this comes from the distribution_wide.xlsx).  What I mean by that is that the distribution diff come from the distribution percentages which are already in the distributions_wide.Xlsx    . As a result I was wondering instead of passing the divisions from each year to pass the Actually the actual percentage is from this year and last year So that more data available 
-- [ ] FEAT: analyse contains METRIC_WEIGHTS (=# --- Weighted high-end metric --- ) which converts the bins_diff into a single metric (in a sense this is a type of neural network that I could try to train for each individual school_code). In any case this is parameter that should be exposed outside of the code, so that it may be changed. 
-     - [ ]FEAT: weights can be saved globally or with `schools.yml` also (or at least overriden)
-     - [ ]maybe another approach (more intuitive and straightforward to compute -- array multiplication and sum) using a df with all the bins instead of a dictionary with only a few bins might be better (even though its mostly populated with zero values).
-- [ ] to differentiate between measures, you need to add the weights in the analysis, suffix a hash which comes from the weights list. 
+
 
 ## Neural network training
 

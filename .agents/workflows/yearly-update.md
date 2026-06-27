@@ -28,7 +28,7 @@ Before running this workflow:
 uv run python national_load_baseis.py
 ```
 
-Verify: `data/baseis-master.csv` contains rows for `{year}`.
+Verify: `data/_pipeline_cache/baseis-master.csv` contains rows for `{year}`.
 
 ---
 
@@ -40,11 +40,11 @@ Verify: `data/baseis-master.csv` contains rows for `{year}`.
 uv run python national_pivot_distributions.py
 ```
 
-Verify: `output/distributions_wide.xlsx` index includes `{year}`.
+Verify: `data/_pipeline_cache/distributions_wide.xlsx` index includes `{year}`.
 
 ---
 
-### 3. Run percentile analysis
+### 3. Run profile analysis
 
 **Skill:** `run-profile-analysis`
 
@@ -52,8 +52,10 @@ Verify: `output/distributions_wide.xlsx` index includes `{year}`.
 uv run python analyse.py --profile <name>
 ```
 
-Verify: `profiles/{name}/analysis.xlsx` — check `percentile_scores` and `high_end_metric`
-to see where the new year falls relative to prior years.
+Verify: `profiles/{name}/analysis-{year}-{hash}.xlsx` (and the matching
+`report-{year}-{hash}.md`) — check `high_end_metric` and `predictions` to see where the
+new year falls relative to prior years. The weight-set `{hash}` is printed at the end of
+the run; glob `report-{year}-*.md` to find the report.
 
 ---
 
@@ -77,5 +79,7 @@ After a successful run, compare `high_end_metric` across years:
 - **Metric increased vs prior year** → scores shifted up → expect higher βάσεις.
 - **Metric decreased vs prior year** → scores shifted down → expect lower βάσεις.
 
-Cross-check against `percentile_shifts`: if the 90th-percentile bin moved up by 1
-for most subjects, the drop in βάσεις will likely be smaller than the metric alone suggests.
+Cross-check against the `predictions` sheet: compare `metric_shift ({year}-{prev})`
+against the historical metric shifts in `high_end_metric` — if the prediction-year shift
+falls outside the training range, the linear fit is extrapolating and the predicted
+entries are less reliable.

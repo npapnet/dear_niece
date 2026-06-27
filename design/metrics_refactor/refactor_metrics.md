@@ -1,7 +1,7 @@
 # Refactor: configurable high-end metric weights
 
 > Design document / plan for the metric-weights refactor. See
-> [`architecture.md`](architecture.md) for the surrounding pipeline.
+> [`architecture.md`](../../architecture.md) for the surrounding pipeline.
 
 ## Context
 
@@ -275,7 +275,7 @@ The "find the current output" UX is handled by printing the hash and globbing
   `metric_weights` workbook sheet (Phase 1 added the sheet; Phase 2 only adds the
   hash label, it does not create the sheet).
 - **Finding "the" output (UX gap).** Hash suffixes let weight sets coexist but break
-  the "one predictably-named file per year" assumption in the [Goal](architecture.md)
+  the "one predictably-named file per year" assumption in the [Goal](../../architecture.md)
   and the `yearly-update` workflow. Settle + document how the current run is located
   when Phase 2 starts — e.g. print the hash at the end of `main()` and have consumers
   glob `report-{year}-*.md` (newest), since the default-weights hash is stable.
@@ -300,23 +300,12 @@ The "find the current output" UX is handled by printing the hash and globbing
 
 ### Phase 3 — (Deferred, separate commit) package + `dn` CLI
 
-Promote the already-importable modules into a `src/dear_niece/` package with
-console subcommands (`dn load_baseis`, `dn pivot_distributions`,
-`dn analyze --profile maria`, later `dn train`). Done **after** the weights work,
-guarded by the Phase 0 tests.
-
-- **The blocker is path handling.** Every script currently derives the project
-  root as `Path(__file__).parent`, which breaks under a `src/` layout (`__file__`
-  then points inside the package, not the repo root). Switch to a deliberate
-  project-root strategy — CWD by default, overridable via a `--root` flag or
-  `DN_PROJECT_ROOT` env var — and thread paths through the loaders. Phase 0's
-  path injection already pre-pays part of this rework.
-- Add `[project.scripts]` entry points in `pyproject.toml`; update the run
-  commands in `architecture.md`.
-- **NN relevance:** a package gives the trainer a clean import surface and a
-  `dn train` home, but it is **not required** for the NN — the dense-array +
-  `weights/{hash}.npy` design (Phases 1–2) is what actually enables it. That is
-  why packaging is deferred rather than done first.
+**Moved out.** Phase 3 is deferred future work and now lives in its own spec:
+[`design/future_work/refactor_package.md`](../future_work/refactor_package.md).
+It promotes the already-importable modules into a `src/dear_niece/` package with
+console subcommands and is done **after** the weights work, guarded by the Phase 0
+tests. See that document for the path-handling blocker, the `[project.scripts]`
+wiring, and why packaging is not required for the NN.
 
 ### How this makes the future NN commit easy
 
@@ -340,7 +329,8 @@ regression — the array *is* the learned linear layer.
   `pyproject.toml`.
 - New (Phase 1): `metrics.py`, `metric_weights.yml`, `tests/test_metrics.py`.
 - New (Phase 2): `weights/` (generated).
-- New (Phase 3, deferred): `src/dear_niece/`, `[project.scripts]` in `pyproject.toml`.
+- Phase 3 (deferred): see [`design/future_work/refactor_package.md`](../future_work/refactor_package.md)
+  — `src/dear_niece/`, `[project.scripts]` in `pyproject.toml`.
 
 ## Verification
 
