@@ -3,7 +3,7 @@
 > Design document / plan for the packaging refactor. This is **Phase 3** of the
 > metric-weights refactor, extracted into its own spec because it is deferred to a
 > separate commit *after* the weights work (Phases 0–2) has landed. See
-> [`design/metrics_refactor/refactor_metrics.md`](../metrics_refactor/refactor_metrics.md)
+> [`design/archive/refactor_metrics.md`](../archive/refactor_metrics.md)
 > for Phases 0–2 and [`architecture.md`](../../architecture.md) for the surrounding
 > pipeline.
 

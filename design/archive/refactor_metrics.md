@@ -1,7 +1,6 @@
 # Refactor: configurable high-end metric weights
 
-> Design document / plan for the metric-weights refactor. See
-> [`architecture.md`](../../architecture.md) for the surrounding pipeline.
+> **Archived.** Phases 0–2 complete and shipped. Phase 3 (package + `dn` CLI) is a separate, deferred spec: [`design/future_work/refactor_package.md`](../future_work/refactor_package.md). See [`architecture.md`](../../architecture.md) for the surrounding pipeline.
 
 ## Context
 

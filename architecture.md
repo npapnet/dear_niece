@@ -59,8 +59,8 @@ profiles/
 metric_weights.yml         # committed — global default high-end metric weights (sparse YAML, per-class)
 
 design/                    # committed — refactor specs, implementation notes, and design docs
-  metrics_refactor/        #   configurable metric-weights refactor (Phases 0–2, done)
-    refactor_metrics.md
+  archive/                 #   completed specs (frozen, for provenance)
+  ongoing/                 #   in-flight specs
   future_work/             #   deferred / not-yet-started designs
     refactor_package.md    #     Phase 3: src/ package + dn CLI
 
