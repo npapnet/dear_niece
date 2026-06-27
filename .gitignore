@@ -11,6 +11,7 @@ output/
 data/_pipeline_cache/
 
 profiles/*/analysis-*.xlsx
+profiles/*/report-*.md
 
 # Excel lock files
 ~$*.xlsx

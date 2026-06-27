@@ -4,17 +4,9 @@
 # Recent improvements
 - [x] feat: add the year of prediction in the "schools.yml", so the analysis will take data up to that year and the previous one (probably the easier by subsetting). E.g. maria profile should make a prediction for 2025 (i.e. using distributions diff up to 2025-24 and bases diff up to 2024-2023), and Manou2026 for 2026 (distributions diff up to 2026-25 and bases diff up to 2025-24).
 - [x] chore: when using national_load_bases.py the console should only show the name of year that is being processed, in the sense of a progress bar. 
-
+- [x] Create and md report in each profile. 
+ 
 # Generic 
-- [ ] Create and md report in each profile. 
-
-
-# Future ideas
-- [ ] UT Testing.
-- [ ] Convert to package
-- [ ] this repo currently caters only 3rd field school. Try to generalise it for all 4 fields (This only requires handling of addtional mark distribution data, since baseis-raw contain all fields).
-  - [ ] national plot distribution only caters for the 3rd field.
-  - [ ] national plot distribution only caters for the last year (maybe add an argument for processing a specific year as the last one and ignore subsequent, and set a number of years to include).
 
 
 # Metrics improvements 
@@ -36,3 +28,10 @@ In order to get better values for the weights of the high_end metric (or a bette
 - train
 - evaluate
 - compare to other methods
+
+# Future ideas
+- [ ] UT Testing.
+- [ ] Convert to package
+- [ ] this repo currently caters only 3rd field school. Try to generalise it for all 4 fields (This only requires handling of addtional mark distribution data, since baseis-raw contain all fields).
+  - [ ] national plot distribution only caters for the 3rd field.
+  - [ ] national plot distribution only caters for the last year (maybe add an argument for processing a specific year as the last one and ignore subsequent, and set a number of years to include).

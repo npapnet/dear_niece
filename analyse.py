@@ -10,6 +10,7 @@ is used to predict the upcoming admission threshold change.
 """
 
 import argparse
+import datetime
 import yaml
 import pandas as pd
 import numpy as np
@@ -139,7 +140,6 @@ common_years = metric_shift_series.index.intersection(baseis_shift.index)
 X_train = metric_shift_series.loc[common_years].values
 A_matrix = np.column_stack([X_train, np.ones_like(X_train)])
 
-prediction_year = int(metric_shift_series.index.max())
 x_pred = float(metric_shift_series.loc[prediction_year])
 pred_label = f'{prediction_year}-{prediction_year - 1}'
 last_baseis_year = int(baseis_wide.index.max())
@@ -213,3 +213,115 @@ with pd.ExcelWriter(analysis_out) as writer:
     prediction_df.to_excel(writer, sheet_name='predictions', index=False)
 
 print(f"\nSaved: {analysis_out}")
+
+# %%
+# --- Markdown report ---
+
+def _md_table(df: pd.DataFrame) -> str:
+    """Render a DataFrame as a GitHub-flavoured markdown table."""
+    def _fmt(v):
+        if isinstance(v, float) and pd.isna(v):
+            return ''
+        if isinstance(v, float):
+            return f'{v:.2f}'
+        return str(v)
+
+    headers = [str(df.index.name or '')] + [str(c) for c in df.columns]
+    rows = [[str(idx)] + [_fmt(v) for v in row] for idx, row in zip(df.index, df.values)]
+    widths = [max(len(h), max((len(r[i]) for r in rows), default=0)) for i, h in enumerate(headers)]
+
+    def _row(cells):
+        return '| ' + ' | '.join(c.ljust(w) for c, w in zip(cells, widths)) + ' |'
+
+    sep = '|' + '|'.join('-' * (w + 2) for w in widths) + '|'
+    return '\n'.join([_row(headers), sep] + [_row(r) for r in rows])
+
+
+def build_report(
+    profile: str,
+    prediction_year: int,
+    metric_weights: dict,
+    classes: list[str],
+    bins: list[int],
+    diff_df: pd.DataFrame,
+    pred_label: str,
+    baseis_shift: pd.DataFrame,
+    prediction_df: pd.DataFrame,
+    last_baseis_year: int,
+) -> str:
+    """Return the full markdown report as a string."""
+
+    # Weights table: rows = bins that carry any weight, cols = subjects
+    weight_bins = sorted({b for w in metric_weights.values() for b in w})
+    weights_table = pd.DataFrame(
+        {cls: {b: metric_weights[cls].get(b, '') for b in weight_bins} for cls in classes},
+        index=weight_bins,
+    )
+    weights_table.index.name = 'bin'
+
+    # Distribution diffs: one sub-table per period, rows = bins, cols = subjects
+    def _diff_period_table(row: pd.Series) -> pd.DataFrame:
+        df = pd.DataFrame(
+            {cls: {b: row.get(f'{cls}_{b:02d}', float('nan')) for b in bins} for cls in classes},
+            index=bins,
+        )
+        df.index.name = 'bin'
+        return df
+
+    # Predictions: reader-facing columns only (drop raw regression coefficients)
+    pred_cols = [
+        'school_code', 'institution', 'department',
+        f'metric_shift ({pred_label})',
+        'predicted_shift',
+        f'entry_{last_baseis_year}',
+        f'predicted_entry_{prediction_year}',
+        'r2',
+    ]
+    pred_table = prediction_df[[c for c in pred_cols if c in prediction_df.columns]].set_index('school_code')
+
+    lines = [
+        f'# Analysis Report — {profile} — {prediction_year}',
+        f'',
+        f'_Generated: {datetime.date.today()}_',
+        f'',
+        f'## Metric Weights',
+        f'',
+        _md_table(weights_table),
+        f'',
+        f'## Distribution Diffs',
+        f'',
+    ]
+    for period in diff_df.index:
+        suffix = ' ← prediction period' if period == pred_label else ''
+        lines += [f'### {period}{suffix}', '', _md_table(_diff_period_table(diff_df.loc[period])), '']
+
+    lines += [
+        f'## Baseis Shifts',
+        f'',
+        _md_table(baseis_shift.rename_axis('year')),
+        f'',
+        f'## Predictions',
+        f'',
+        _md_table(pred_table),
+        f'',
+    ]
+    return '\n'.join(lines)
+
+
+report_out = profile_dir / f'report-{prediction_year}.md'
+report_out.write_text(
+    build_report(
+        profile=args.profile,
+        prediction_year=prediction_year,
+        metric_weights=METRIC_WEIGHTS,
+        classes=CLASSES,
+        bins=BINS,
+        diff_df=diff_df,
+        pred_label=pred_label,
+        baseis_shift=baseis_shift,
+        prediction_df=prediction_df,
+        last_baseis_year=last_baseis_year,
+    ),
+    encoding='utf-8',
+)
+print(f'Saved: {report_out}')
