@@ -17,8 +17,8 @@ flowchart TD
         LB["national_load_baseis.py"]
         PD["national_pivot_distributions.py"]
         PP["national_plot_distributions.py\n(optional visual check)"]
-        MASTER["data/baseis-master.csv"]
-        WIDE["output/distributions_wide.xlsx"]
+        MASTER["data/_pipeline_cache/baseis-master.csv"]
+        WIDE["data/_pipeline_cache/distributions_wide.xlsx"]
         GEL --> LB --> MASTER
         DISTXL --> PD --> WIDE
         WIDE -.->|optional| PP
@@ -26,9 +26,9 @@ flowchart TD
 
     subgraph prof["Per profile — run for each person"]
         direction TB
-        YML["profiles/name/schools.yml\n(committed — 4-digit codes)"]
+        YML["profiles/name/schools.yml\n(committed — prediction_year + 4-digit codes)"]
         AN["analyse.py --profile name"]
-        OUT["profiles/name/analysis.xlsx"]
+        OUT["profiles/name/analysis-YEAR-HASH.xlsx\n+ report-YEAR-HASH.md"]
         YML --> AN --> OUT
     end
 
@@ -58,7 +58,7 @@ Name the file `gel-YEAR.xlsx` and drop it in `data/baseis-raw/`. Then:
 uv run python national_load_baseis.py
 ```
 
-Verify: `data/baseis-master.csv` contains rows for the new year.
+Verify: `data/_pipeline_cache/baseis-master.csv` contains rows for the new year.
 
 ### Step 2 · New grade distributions
 
@@ -79,7 +79,7 @@ uv run python national_pivot_distributions.py
 uv run python national_plot_distributions.py   # optional — inspect the CDF plot
 ```
 
-Verify: `output/distributions_wide.xlsx` index includes the new year.
+Verify: `data/_pipeline_cache/distributions_wide.xlsx` index includes the new year.
 
 ---
 
@@ -93,8 +93,18 @@ uv run python analyse.py --profile maria
 uv run python analyse.py --profile manou2026
 ```
 
-Output: `profiles/{name}/analysis.xlsx` — seven sheets including percentile scores,
-year-over-year shifts, the weighted high-end metric, and baseis thresholds.
+Output (named after the `prediction_year` and the metric weight-set hash, both printed
+at the end of the run):
+
+- `profiles/{name}/analysis-{year}-{hash}.xlsx` — seven sheets: the weighted high-end
+  metric, the metric weights, per-bin distribution diffs, baseis thresholds and shifts,
+  long-format detail, and per-school predictions.
+- `profiles/{name}/report-{year}-{hash}.md` — a markdown summary of the same.
+
+The metric weights come from `metric_weights.yml` (repo root), optionally overridden
+per-profile via a `metric_weights:` block in `schools.yml`. Every weight set used is
+saved to the gitignored `weights/{hash}.{npy,yml}` store, so runs with different weights
+never overwrite each other.
 
 ---
 
@@ -102,9 +112,11 @@ year-over-year shifts, the weighted high-end metric, and baseis thresholds.
 
 ### What to do
 
-1. Create `profiles/{name}/schools.yml` listing the 4-digit ministry school codes:
+1. Create `profiles/{name}/schools.yml` with the prediction year and the 4-digit
+   ministry school codes:
 
    ```yaml
+   prediction_year: 2025
    schools:
      - "0277"
      - "0279"
@@ -125,7 +137,7 @@ Query the master CSV to browse available schools:
 ```python
 import pandas as pd
 
-master = pd.read_csv('data/baseis-master.csv', encoding='utf-8-sig')
+master = pd.read_csv('data/_pipeline_cache/baseis-master.csv', encoding='utf-8-sig')
 
 # List all biology-accessible departments (field_3 = natural sciences)
 bio = (master[master['field_3']][['school_code', 'institution', 'department']]
@@ -157,10 +169,10 @@ master[master['institution'].str.contains('ΑΠΘ', na=False)][
 
 ```bash
 # Update national data (once per year, in order)
-uv run python national_load_baseis.py          # → data/baseis-master.csv
-uv run python national_pivot_distributions.py  # → output/distributions_wide.xlsx
+uv run python national_load_baseis.py          # → data/_pipeline_cache/baseis-master.csv
+uv run python national_pivot_distributions.py  # → data/_pipeline_cache/distributions_wide.xlsx
 uv run python national_plot_distributions.py   # → output/distributions_plot.png (optional)
 
 # Profile analysis (once per profile per year)
-uv run python analyse.py --profile {name}      # → profiles/{name}/analysis.xlsx
+uv run python analyse.py --profile {name}      # → profiles/{name}/analysis-{year}-{hash}.xlsx + report
 ```

@@ -10,7 +10,7 @@ inputs:
     default: data/baseis-raw/
 outputs:
   - name: master_csv
-    description: data/baseis-master.csv — long-format table, one row per (year, school, position_type)
+    description: data/_pipeline_cache/baseis-master.csv — long-format table, one row per (year, school, position_type)
 ---
 
 ## What this skill does
@@ -22,7 +22,7 @@ Calls `national_load_baseis.py`, which:
 3. Drops tiebreak-criteria columns (no analytical value).
 4. One-hot encodes the `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` field into `field_1`–`field_4` bool columns.
 5. Concatenates all years into a single long-format DataFrame.
-6. Writes `data/baseis-master.csv` (UTF-8 with BOM for Excel compatibility).
+6. Writes `data/_pipeline_cache/baseis-master.csv` (UTF-8 with BOM for Excel compatibility).
 
 ## Command
 

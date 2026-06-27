@@ -21,8 +21,8 @@ flowchart TD
     F --> G
     F --> H["national_plot_distributions.py"]
 
-    G --> I["profiles/NAME/analysis-YEAR.xlsx\nMetric, baseis, predictions for this profile"]
-    G --> R["profiles/NAME/report-YEAR.md\nMarkdown summary"]
+    G --> I["profiles/NAME/analysis-YEAR-HASH.xlsx\nMetric, baseis, predictions for this profile"]
+    G --> R["profiles/NAME/report-YEAR-HASH.md\nMarkdown summary"]
     H --> J["output/distributions_plot.png\nComplementary CDF curves, all subjects"]
 ```
 
@@ -64,26 +64,33 @@ Biology. This is the format consumed by `analyse.py`.
 ### `analyse.py --profile NAME`
 
 The analysis script. It reads both cache files and the profile's `schools.yml`, then
-writes two output files. See {doc}`methodology` for a full description of what it computes.
+writes two output files. The metric weights are loaded from `metric_weights.yml`
+(optionally overridden per-profile — see {doc}`profiles`) by `metrics.py`, and the
+weight set is persisted to the content-addressable `weights/` store. See
+{doc}`methodology` for a full description of what it computes.
 
 The profile's `schools.yml` must declare a `prediction_year`. The script uses
 distribution data up to and including that year, and βάσεις data up to
-`prediction_year − 1`. Both outputs are named after the prediction year. If
-`distributions_wide.xlsx` does not contain data for `prediction_year`, the script
-exits with an error and a message directing you to update `data/distributions.xlsx`.
+`prediction_year − 1`. Both outputs are named after the prediction year **and the
+weight-set hash** (`{prediction_year}-{hash}`), so different weight sets coexist; the
+hash is printed at the end of the run. If `distributions_wide.xlsx` does not contain
+data for `prediction_year`, the script exits with an error and a message directing
+you to update `data/distributions.xlsx`.
 
-**`analysis-{prediction_year}.xlsx`** — full workbook:
+**`analysis-{prediction_year}-{hash}.xlsx`** — full workbook:
 
 | Sheet             | Contents                                                             |
 | ----------------- | -------------------------------------------------------------------- |
 | `high_end_metric` | Weighted metric value and year-over-year shift per year              |
+| `metric_weights`  | The weight set used (dense table), with its hash stamped in cell A1  |
 | `bin_diffs`       | Raw percentage-point shift per bin, per year transition              |
 | `baseis`          | Wide table: entry score per school per year                          |
 | `baseis_shifts`   | Year-over-year change in entry score per school                      |
 | `baseis_detail`   | Long-format table with institution and department names              |
 | `predictions`     | Per-school regression coefficients, predicted shift, predicted entry |
 
-**`report-{prediction_year}.md`** — markdown summary with four sections:
+**`report-{prediction_year}-{hash}.md`** — markdown summary with four sections (the
+weight-set hash is stamped in the header):
 
 | Section            | Contents                                                          |
 | ------------------ | ----------------------------------------------------------------- |

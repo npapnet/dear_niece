@@ -10,7 +10,7 @@ inputs:
     default: data/distributions.xlsx
 outputs:
   - name: distributions_wide
-    description: output/distributions_wide.xlsx — rows=year, cols=subject_scorebin, values=percentage
+    description: data/_pipeline_cache/distributions_wide.xlsx — rows=year, cols=subject_scorebin, values=percentage
 ---
 
 ## What this skill does
@@ -22,7 +22,7 @@ Calls `national_pivot_distributions.py`, which:
    (`Βιολογία`→`bio`, `Φυσική`→`phys`, `Χημεία`→`chem`, `γλώσσα`→`lang`).
 3. Parses the score bin label (e.g. `'10 - 10.9'` → `10`) into `marks_bin_start`.
 4. Pivots to wide format: index=year, columns=`{subject}_{bin:02d}`, values=percentage.
-5. Writes `output/distributions_wide.xlsx`.
+5. Writes `data/_pipeline_cache/distributions_wide.xlsx`.
 
 ## Command
 
