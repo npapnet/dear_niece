@@ -47,11 +47,23 @@ profiles/
     schools.yml            # committed input — prediction_year + 4-digit ministry codes for schools of interest
     analysis-2025.xlsx     # gitignored output — profile-scoped analysis workbook
     report-2025.md         # gitignored output — human-readable markdown summary
+  _golden/                 # committed synthetic test profile (not a real person)
+    schools.yml            # fixed synthetic parameters
+    README.md              # documents the exact synthetic inputs + expected predictions
+    expected-report-2025.md  # frozen golden report — diffed by tests/test_golden_profile.py
 
 national_load_baseis.py             # loader module — the only place that knows the raw baseis format
 national_pivot_distributions.py     # reads distributions.xlsx → data/_pipeline_cache/distributions_wide.xlsx
 analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-{YEAR}.xlsx + report-{YEAR}.md
+                           #   (importable functions; compute core is run_analysis(), CLI under main())
 national_plot_distributions.py      # reads _pipeline_cache/distributions_wide.xlsx → output/distributions_plot.png
+
+tests/                     # pytest suite — synthetic data, no real-cache dependency
+  conftest.py              # synthetic distributions_wide + baseis fixtures
+  test_metrics_pipeline.py # metric / weights / regression unit + integration tests
+  test_golden_profile.py   # end-to-end golden-report backup
+  _golden_helpers.py       # shared synthetic-run logic
+  _regen_golden.py         # regenerate the golden report after an intended change
 ```
 
 
@@ -97,6 +109,25 @@ national_plot_distributions.py   →  output/distributions_plot.png
 ```
 
 All outputs are gitignored and always regenerated from source.
+
+## Testing
+
+The repository has a pytest suite — run it with `uv run pytest` (pytest lives in
+the `dev` dependency group). It is built on **synthetic data** and never depends
+on the gitignored pipeline cache:
+
+- `analyse.py` is structured as importable, side-effect-free functions — the
+  compute core is `run_analysis(...)` — with all file IO and the CLI under
+  `main()`. Tests call the functions directly with synthetic DataFrames.
+- `tests/conftest.py` builds a small synthetic `distributions_wide` + `baseis`
+  master whose metric, bin_diffs, and per-school regression are hand-computable,
+  so the assertions check **correctness**, not merely "same as before".
+- `tests/test_golden_profile.py` is an end-to-end backup: it runs the full
+  `main()` path for the committed `profiles/_golden/` synthetic profile and diffs
+  the produced report against the frozen
+  `profiles/_golden/expected-report-2025.md` (the `_Generated:` date line is
+  normalised). After an *intended* change to the output, regenerate the golden
+  with `uv run python tests/_regen_golden.py`.
 
 ## Key conventions
 

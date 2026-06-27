@@ -13,6 +13,9 @@ data/_pipeline_cache/
 profiles/*/analysis-*.xlsx
 profiles/*/report-*.md
 
+# vscode
+.vscode
+
 # Excel lock files
 ~$*.xlsx
 

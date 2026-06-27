@@ -125,64 +125,90 @@ change, so "same input → same output" is enforced mechanically. The deep
 restructure (package + `dn` CLI) is deliberately **last** — it is the
 highest-risk change and should happen *under* the tests, not before them.
 
-### Phase 0 — Testing foundation + shallow restructure (do first)
+### Phase 0 — Testing foundation + shallow restructure ✅ done
 
-Goal: a green characterization net before the weights convention changes. **No
-behavioural change in this phase.**
+Implemented and green (`uv run pytest` → 7 passed). What landed:
 
-- Add **pytest** as a dev dependency (`.pytest_cache/` is already gitignored).
-- **Capture a golden master from the *current* code, via subprocess.** Build a
-  small committed fixture under `tests/fixtures/` (a trimmed `distributions_wide`
-  + `baseis-master` + a `schools.yml`), run `analyse.py --profile <fixture>` as a
-  subprocess, and snapshot the analytical outputs (`high_end_metric`,
-  `bin_diffs`, `predictions` sheet values) as the expected baseline. Running the
-  flat script as a subprocess lets this test protect the *very first* restructure
-  without needing to import the script.
-- **Shallow restructure** `analyse.py` into importable, side-effect-free
-  functions that take inputs as arguments (DataFrames/paths injected, not read
-  from module-level constants), with the CLI under a `main()` guard. Strictly
-  behaviour-preserving; the subprocess golden master stays green throughout.
-  This is Option 1 ("importable functions + `main()`") and is a strict *subset*
-  of the eventual package work (Phase 3) — nothing here is throwaway.
-- **Unit tests** on the now-importable pure functions (regression, bin_diffs,
-  baseis pivot/shift) with fixture DataFrames.
+- **pytest wired** via `[dependency-groups] dev` and `[tool.pytest.ini_options]`
+  (`pythonpath = "."`, `testpaths = ["tests"]`).
+- **`analyse.py` restructured** into importable, side-effect-free functions —
+  `get_class_distribution`, `compute_bin_diffs`, `compute_metric_df`,
+  `load_wide_df`, `read_master`, `load_baseis_df`, `compute_baseis`, `predict`,
+  `run_analysis(...) -> dict`, `write_workbook`, `build_report` — with all file
+  IO and the CLI under `main()` (which accepts injected cache/profile paths).
+  **Verified behaviour-preserving:** the maria workbook and report came out
+  byte-identical to the pre-restructure output (generated-date aside).
+- **Synthetic fixtures** in `tests/conftest.py` (`make_wide_df`, `make_master_df`)
+  — no dependency on the gitignored cache; values chosen so the metric,
+  bin_diffs, and regression are independently hand-computable.
+- **Weights/metric unit + integration tests** in `tests/test_metrics_pipeline.py`
+  (hand-computed expected values for the weighting, bin_diffs, the per-school
+  regression, and end-to-end `run_analysis`).
+- **End-to-end golden backup** — `profiles/_golden/` (committed `schools.yml`,
+  `README.md` documenting the exact synthetic parameters, frozen
+  `expected-report-2025.md`); `tests/test_golden_profile.py` runs the full
+  `main()` path on synthetic data and diffs the report (normalising the
+  `_Generated:` date); `tests/_golden_helpers.py` + `tests/_regen_golden.py`
+  share the run logic and regenerate the golden after intended changes.
 
-Pin **values, not filenames or sheet sets** — Phases 1–2 intentionally rename
-outputs (hash suffix) and add a `metric_weights` sheet, so the golden master
-asserts the numbers and tolerates additive sheets / renamed files.
+### Phase 1 — Config-loaded weights + `metrics.py` (dense representation)
 
-Representative new files: `tests/conftest.py`, `tests/fixtures/…`,
-`tests/test_characterization.py`, `tests/test_analysis.py`.
+Re-scoped to the post-Phase-0 code: `run_analysis(...)` already accepts
+`metric_weights` and `compute_metric_df` already isolates the metric — so Phase 1
+is a new module + config file + wiring, **not** a rewrite of the compute path.
 
-### Phase 1 — Config + dense metric computation
+**New `metrics.py`** (repo root) owns the weight logic and the shared constants,
+imported one-way (`analyse → metrics`) to avoid an import cycle:
 
-New module **`metrics.py`** (repo root), so the logic is reusable (by the future
-NN) and out of the `analyse.py` script body:
-
-- `load_weights(profile_cfg, default_path) -> dict` — read `metric_weights.yml`,
-  apply per-class override from `profile_cfg`, validate every class ∈ `CLASSES`,
-  every bin ∈ `BINS`, and every weight is numeric/float (clear error otherwise).
+- Move `CLASSES`, `BINS`, and the default weights (`DEFAULT_WEIGHTS`, today's
+  `METRIC_WEIGHTS`) into `metrics.py`; `analyse.py` imports them and keeps
+  `METRIC_WEIGHTS = metrics.DEFAULT_WEIGHTS` as an alias so `run_analysis`'s
+  default and the synthetic fixtures are unchanged.
+- `load_weights(profile_cfg, default_path=METRIC_WEIGHTS_YML) -> dict` — read
+  `metric_weights.yml`, apply the per-class override from `profile_cfg`, validate
+  class ∈ `CLASSES`, bin ∈ `BINS`, weight numeric (clear error otherwise).
 - `dense_weights(weights) -> pd.DataFrame` — sparse dict → dense `float64`
-  DataFrame indexed by `BINS`, columns `CLASSES`, zero-filled. Also exposes the
-  flattened canonical vector aligned to the 48 `{class}_{bin:02d}` columns.
-- `compute_metric(wide_df, weights) -> pd.Series` — per-year metric = dot product
-  of the dense weight vector with each year's distribution row.
-- `weights_hash(dense_vector) -> str` — canonical `float64`, C-contiguous,
-  `round(6)` → `sha256(.tobytes())`, first 6 hex chars.
+  `BINS × CLASSES` table (implicit-0 fill); the readable form for the workbook
+  sheet.
+- `weight_vector(weights) -> pd.Series` — the same weights as a Series indexed by
+  the 48 `{class}_{bin:02d}` names (fixed canonical order). This **name-indexed**
+  form drives `compute_metric` and `weights_hash`, so both are column-order
+  independent (fixes the silent-misalignment trap).
+- `compute_metric(wide_df, weights) -> pd.Series` —
+  `(wide_df[cols] * weight_vector).sum(axis=1)`, name-aligned.
+- `weights_hash(weights) -> str` — `weight_vector` → `float64`, C-contiguous,
+  `round(6)` → `sha256(.tobytes())`, first 6 hex. Built now, consumed in Phase 2.
 
-Add **unit tests for `metrics.py`** (`tests/test_metrics.py`): `load_weights`
-override semantics + validation errors, `dense_weights` materialization and
-baseline-`default` fill, `compute_metric` against a hand-computed value, and
-`weights_hash` stability/representation-independence.
+**`analyse.py` changes:**
 
-`analyse.py` changes:
+- Import `CLASSES`/`BINS`/defaults from `metrics.py`; drop the local copies.
+- `compute_metric_df` delegates to `metrics.compute_metric`, then appends
+  `.diff()` (no inline loop); rounding preserved.
+- `main()` loads weights via `load_weights(_profile_cfg, …)` and threads them to
+  `run_analysis(metric_weights=weights)` and `build_report`.
+- Add a `metric_weights` sheet (the `dense_weights` table) to the workbook.
 
-- Delete the hardcoded `METRIC_WEIGHTS` (lines 91-96) and the inline nested-loop
-  metric (lines 98-110); call `metrics.py` instead. `metric_shift` stays
-  `metric.diff()` exactly as today.
-- Load weights right after `schools.yml` is parsed (near `analyse.py:35-37`).
-- Add a `metric_weights` sheet (the dense df) to the workbook for traceability.
-- Keep the existing `high_end_metric` and `bin_diffs` sheets unchanged in shape.
+**New `metric_weights.yml`** (repo root, committed) — the canonical default,
+mirroring `DEFAULT_WEIGHTS`.
+
+**Tests** (`tests/test_metrics.py`):
+
+- `load_weights` override semantics + validation errors.
+- `dense_weights` / `weight_vector` materialization (implicit-0 fill, name
+  alignment).
+- `compute_metric` against a hand-computed value **and** equal to
+  `compute_metric_df`'s metric on synthetic data.
+- `weights_hash` stability + representation-independence (key order; `1` vs `1.0`).
+- **No-drift:** `metric_weights.yml` parses to exactly `DEFAULT_WEIGHTS`.
+
+**Guard:** default weights ⇒ identical metric, so the Phase 0 golden + synthetic
+tests stay green; the new `metric_weights` sheet is additive and absent from the
+report, so the golden report is unchanged.
+
+**Deferred:** the `default:` baseline-fill (see §"Baseline fill for the dense
+regime") — its interaction with per-class override is under-specified and
+unnecessary while weights are sparse. Implement only implicit-0 now; revisit for
+the all-schools regime.
 
 ### Phase 2 — Content-addressable store + hash-suffixed outputs
 
@@ -231,25 +257,31 @@ regression — the array *is* the learned linear layer.
 
 ## Critical files
 
-- `analyse.py` — `:27` BINS, `:35-37` config load, `:49`/`:311` output names,
-  `:91-110` weights+metric, `:207-213` workbook sheets, `:240-326` report.
+- `analyse.py` — `compute_metric_df` (delegates to `metrics` in Phase 1),
+  `run_analysis` (already takes `metric_weights`), `write_workbook` (sheets),
+  `main` (config load + output names), `build_report`.
 - `national_pivot_distributions.py:85-87` — defines the `{class}_{bin:02d}`
   column convention the dense vector must align to.
 - `architecture.md`, `.agents/skills/run-profile-analysis.md` — naming/config docs.
-- New (Phase 0): `tests/` (`conftest.py`, `fixtures/…`, `test_characterization.py`,
-  `test_analysis.py`, `test_metrics.py`); pytest in `pyproject.toml`.
-- New (Phase 1–2): `metrics.py`, `metric_weights.yml`, `weights/` (generated).
+- Added (Phase 0): `tests/conftest.py`, `tests/test_metrics_pipeline.py`,
+  `tests/test_golden_profile.py`, `tests/_golden_helpers.py`, `tests/_regen_golden.py`,
+  `profiles/_golden/{schools.yml,README.md,expected-report-2025.md}`; pytest in
+  `pyproject.toml`.
+- New (Phase 1): `metrics.py`, `metric_weights.yml`, `tests/test_metrics.py`.
+- New (Phase 2): `weights/` (generated).
 - New (Phase 3, deferred): `src/dear_niece/`, `[project.scripts]` in `pyproject.toml`.
 
 ## Verification
 
-1. **Test suite green:** `uv run pytest` passes — the Phase 0 characterization
-   golden master and unit tests, then the Phase 1 `metrics.py` tests.
-2. **Same input → same output (the headline guarantee):** the characterization
-   test, captured from the *current* code, still passes after the shallow
-   restructure (Phase 0) and after the weights refactor with default weights
-   (Phases 1–2) — pinning **values**, tolerant of the hash-suffixed filename and
-   the additive `metric_weights` sheet.
+1. **Test suite green:** `uv run pytest` passes — the Phase 0 synthetic
+   unit/integration tests and golden-report backup, plus the Phase 1
+   `tests/test_metrics.py`.
+2. **Same input → same output (the headline guarantee):** with default weights,
+   the synthetic golden report and the hand-computed metric/regression assertions
+   stay green across the weights refactor (Phases 1–2). The golden report is
+   unchanged by Phase 1 (the `metric_weights` sheet is workbook-only); Phase 2's
+   report-header + filename changes are absorbed by regenerating the golden and
+   by pinning **values**, tolerant of the hash-suffixed filename.
 3. `uv run python analyse.py --profile maria` runs clean, prints the metric table
    as before, and writes `weights/{hash}.npy`.
 4. **Float weights work:** an override with non-integer weights runs and produces
