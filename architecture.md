@@ -45,11 +45,12 @@ output/                    # gitignored — final deliverables
 profiles/
   maria/
     schools.yml            # committed input — prediction_year + 4-digit ministry codes for schools of interest
-    analysis-2025.xlsx     # gitignored output — profile-scoped analysis (year matches prediction_year)
+    analysis-2025.xlsx     # gitignored output — profile-scoped analysis workbook
+    report-2025.md         # gitignored output — human-readable markdown summary
 
 national_load_baseis.py             # loader module — the only place that knows the raw baseis format
 national_pivot_distributions.py     # reads distributions.xlsx → data/_pipeline_cache/distributions_wide.xlsx
-analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-{YEAR}.xlsx
+analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-{YEAR}.xlsx + report-{YEAR}.md
 national_plot_distributions.py      # reads _pipeline_cache/distributions_wide.xlsx → output/distributions_plot.png
 ```
 
@@ -91,7 +92,7 @@ The scripts run in sequence; each feeds the next:
 ```
 national_load_baseis.py          →  data/_pipeline_cache/baseis-master.csv
 national_pivot_distributions.py  →  data/_pipeline_cache/distributions_wide.xlsx
-analyse.py              →  profiles/{name}/analysis-{YEAR}.xlsx
+analyse.py              →  profiles/{name}/analysis-{YEAR}.xlsx + report-{YEAR}.md
 national_plot_distributions.py   →  output/distributions_plot.png
 ```
 
@@ -99,7 +100,7 @@ All outputs are gitignored and always regenerated from source.
 
 ## Key conventions
 
-- **`prediction_year` in `schools.yml` controls the analysis window.** `analyse.py` uses distribution data up to and including `prediction_year`, and βάσεις data up to `prediction_year - 1` (since the upcoming year's βάσεις are not yet published). The output file is named `analysis-{prediction_year}.xlsx`. To target a different year, change only this field.
+- **`prediction_year` in `schools.yml` controls the analysis window.** `analyse.py` uses distribution data up to and including `prediction_year`, and βάσεις data up to `prediction_year - 1` (since the upcoming year's βάσεις are not yet published). Both output files are named after the year: `analysis-{prediction_year}.xlsx` and `report-{prediction_year}.md`. To target a different year, change only this field.
 - **`national_load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only.
 - **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
 - **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).

@@ -22,11 +22,12 @@ flowchart TD
     C["2. Add YEAR rows\nto data/distributions.xlsx\nsheet: data-StudentsDistribution"] 
     B --> D["uv run python national_load_baseis.py"]
     C --> E["uv run python national_pivot_distributions.py"]
-    D --> F["data/baseis-master.csv\nupdated"]
-    E --> G["output/distributions_wide.xlsx\nupdated"]
+    D --> F["data/_pipeline_cache/baseis-master.csv\nupdated"]
+    E --> G["data/_pipeline_cache/distributions_wide.xlsx\nupdated"]
     F --> H["uv run python analyse.py\n--profile NAME"]
     G --> H
-    H --> I["profiles/NAME/analysis.xlsx\nwith updated predictions"]
+    H --> I["profiles/NAME/analysis-YEAR.xlsx\nwith updated predictions"]
+    H --> R["profiles/NAME/report-YEAR.md\nmarkdown summary"]
     G --> J["uv run python national_plot_distributions.py"]
     J --> K["output/distributions_plot.png\nupdated"]
 ```
@@ -41,7 +42,8 @@ Then run:
 uv run python national_load_baseis.py
 ```
 
-This regenerates `data/baseis-master.csv` with the new year appended.
+This regenerates `data/_pipeline_cache/baseis-master.csv` with the new year appended.
+The console shows a one-line progress indicator (year and position) while each file loads.
 
 ### 2. Add distribution data
 
@@ -61,7 +63,7 @@ Then run:
 uv run python national_pivot_distributions.py
 ```
 
-This regenerates `output/distributions_wide.xlsx`.
+This regenerates `data/_pipeline_cache/distributions_wide.xlsx`.
 
 ### 3. Rerun analysis and plot
 
@@ -75,7 +77,10 @@ Repeat the `analyse.py` call for each profile.
 
 ## Verifying the update
 
-After running, check the following in each profile's `analysis.xlsx`:
+The quickest sanity check is `report-{prediction_year}.md` — open it in any markdown
+viewer and confirm the prediction period label and the predicted entries look reasonable.
+
+For a deeper check, open `analysis-{prediction_year}.xlsx` and verify:
 
 1. **`high_end_metric` sheet** — the new year appears as a row with a valid `metric`
    and `metric_shift` value. If `metric_shift` is NaN, the year was added but there

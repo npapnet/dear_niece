@@ -14,14 +14,15 @@ flowchart TD
     A --> B["national_load_baseis.py"]
     C --> D["national_pivot_distributions.py"]
 
-    B --> E["data/baseis-master.csv\nLong-format, all years, all departments"]
-    D --> F["output/distributions_wide.xlsx\nOne row per year, one column per subject×bin"]
+    B --> E["data/_pipeline_cache/baseis-master.csv\nLong-format, all years, all departments"]
+    D --> F["data/_pipeline_cache/distributions_wide.xlsx\nOne row per year, one column per subject×bin"]
 
     E --> G["analyse.py --profile NAME"]
     F --> G
     F --> H["national_plot_distributions.py"]
 
-    G --> I["profiles/NAME/analysis.xlsx\nMetric, baseis, predictions for this profile"]
+    G --> I["profiles/NAME/analysis-YEAR.xlsx\nMetric, baseis, predictions for this profile"]
+    G --> R["profiles/NAME/report-YEAR.md\nMarkdown summary"]
     H --> J["output/distributions_plot.png\nComplementary CDF curves, all subjects"]
 ```
 
@@ -30,28 +31,31 @@ flowchart TD
 ### `national_load_baseis.py`
 
 Reads every `data/baseis-raw/gel-*.xlsx` file and concatenates them into a single
-long-format CSV at `data/baseis-master.csv`.
+long-format CSV at `data/_pipeline_cache/baseis-master.csv`.
 
 Each raw file has a two-row merged-cell header, which varies slightly across years
 (the ministry added two columns in 2025). The loader handles all known variants
 automatically through `_build_columns()` — the only place that knows the raw format.
 
+While loading, the console shows an inline progress indicator — the year currently
+being processed and its position in the file list.
+
 Key output columns:
 
-| Column | Description |
-|---|---|
-| `year` | Extracted from the file title |
-| `school_code` | 4-digit ministry code — stable across years, used as the join key |
-| `institution` | University abbreviation |
-| `department` | Full department name (Greek, includes city) |
-| `position_type` | Admission track (e.g. `ΓΕΛ ΓΕΝΙΚΗ ΣΕΙΡΑ ΗΜ.`) |
-| `field_1`–`field_4` | Boolean: which scientific fields grant access to this department |
-| `entry` | **The admission threshold** — lowest score admitted (μόρια) |
+| Column              | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `year`              | Extracted from the file title                                     |
+| `school_code`       | 4-digit ministry code — stable across years, used as the join key |
+| `institution`       | University abbreviation                                           |
+| `department`        | Full department name (Greek, includes city)                       |
+| `position_type`     | Admission track (e.g. `ΓΕΛ ΓΕΝΙΚΗ ΣΕΙΡΑ ΗΜ.`)                     |
+| `field_1`–`field_4` | Boolean: which scientific fields grant access to this department  |
+| `entry`             | **The admission threshold** — lowest score admitted (μόρια)       |
 
 ### `national_pivot_distributions.py`
 
 Reads `data/distributions.xlsx` (sheet `data-StudentsDistribution`) and produces a
-wide-format table at `output/distributions_wide.xlsx`.
+wide-format table at `data/_pipeline_cache/distributions_wide.xlsx`.
 
 In the wide format, each row is one year and each column is `{subject}_{bin}` — for
 example `bio_19` holds the percentage of students who scored in the 19–20 bracket in
@@ -59,25 +63,43 @@ Biology. This is the format consumed by `analyse.py`.
 
 ### `analyse.py --profile NAME`
 
-The analysis script. It reads both intermediate outputs and produces the profile's
-`analysis.xlsx`. See {doc}`methodology` for a full description of what it computes.
+The analysis script. It reads both cache files and the profile's `schools.yml`, then
+writes two output files. See {doc}`methodology` for a full description of what it computes.
 
-Output sheets:
+The profile's `schools.yml` must declare a `prediction_year`. The script uses
+distribution data up to and including that year, and βάσεις data up to
+`prediction_year − 1`. Both outputs are named after the prediction year. If
+`distributions_wide.xlsx` does not contain data for `prediction_year`, the script
+exits with an error and a message directing you to update `data/distributions.xlsx`.
 
-| Sheet | Contents |
-|---|---|
-| `high_end_metric` | Weighted metric value and year-over-year shift per year |
-| `bin_diffs` | Raw percentage-point shift per bin, per year transition |
-| `baseis` | Wide table: entry score per school per year |
-| `baseis_shifts` | Year-over-year change in entry score per school |
-| `baseis_detail` | Long-format table with institution and department names |
-| `predictions` | Per-school regression coefficients, predicted shift, predicted entry |
+**`analysis-{prediction_year}.xlsx`** — full workbook:
+
+| Sheet             | Contents                                                             |
+| ----------------- | -------------------------------------------------------------------- |
+| `high_end_metric` | Weighted metric value and year-over-year shift per year              |
+| `bin_diffs`       | Raw percentage-point shift per bin, per year transition              |
+| `baseis`          | Wide table: entry score per school per year                          |
+| `baseis_shifts`   | Year-over-year change in entry score per school                      |
+| `baseis_detail`   | Long-format table with institution and department names              |
+| `predictions`     | Per-school regression coefficients, predicted shift, predicted entry |
+
+**`report-{prediction_year}.md`** — markdown summary with four sections:
+
+| Section            | Contents                                                          |
+| ------------------ | ----------------------------------------------------------------- |
+| Metric Weights     | Weights per subject and bin, table format                         |
+| Distribution Diffs | Percentage-point shifts per bin and subject, one table per period |
+| Baseis Shifts      | Year-over-year threshold changes per school                       |
+| Predictions        | Predicted shift and predicted entry per school                    |
 
 ### `national_plot_distributions.py`
 
-Reads `output/distributions_wide.xlsx` and plots the complementary CDF (percentage
-of students scoring *at or above* each threshold) for each of the four subjects, with
-one line per year. The two most recent years are drawn thicker.
+Reads `data/_pipeline_cache/distributions_wide.xlsx` and plots the complementary CDF
+(percentage of students scoring *at or above* each threshold) for each of the four
+subjects, with one line per year. The two most recent years are drawn thicker.
+
+The script raises a `FileNotFoundError` with a helpful message if the cache file is
+missing — run `national_pivot_distributions.py` first.
 
 ## Running the pipeline
 
