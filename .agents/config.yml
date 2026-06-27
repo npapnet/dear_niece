@@ -1,4 +1,5 @@
 name: dear-niece
+rules: rules.md
 description: Greek university admission threshold prediction pipeline
 architecture: ../architecture.md
 skills_dir: skills/

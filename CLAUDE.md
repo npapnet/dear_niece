@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read [`architecture.md`](architecture.md) before making any changes — it is the authoritative design document and the shared entry point for both Claude Code and Antigravity clients.
 
+Read [`.agents/rules.md`](.agents/rules.md) for behavioural rules that apply to all interactions in this repository.
+
 ## Environment
 
 ```bash
