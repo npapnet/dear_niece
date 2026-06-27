@@ -42,25 +42,32 @@ data/
 output/                    # gitignored — final deliverables
   distributions_plot.png   # complementary CDF plots per subject
 
+weights/                   # gitignored — content-addressable weight store ({hash}.npy + {hash}.yml sidecar)
+
 profiles/
   maria/
-    schools.yml            # committed input — prediction_year + 4-digit ministry codes for schools of interest
-    analysis-2025.xlsx     # gitignored output — profile-scoped analysis workbook
-    report-2025.md         # gitignored output — human-readable markdown summary
+    schools.yml            # committed input — prediction_year, 4-digit ministry codes, optional metric_weights override
+    analysis-2025-{hash}.xlsx  # gitignored output — analysis workbook ({hash} = weight-set id)
+    report-2025-{hash}.md      # gitignored output — markdown summary ({hash} = weight-set id)
   _golden/                 # committed synthetic test profile (not a real person)
     schools.yml            # fixed synthetic parameters
     README.md              # documents the exact synthetic inputs + expected predictions
     expected-report-2025.md  # frozen golden report — diffed by tests/test_golden_profile.py
 
+metric_weights.yml         # committed — global default high-end metric weights (sparse YAML, per-class)
+
 national_load_baseis.py             # loader module — the only place that knows the raw baseis format
 national_pivot_distributions.py     # reads distributions.xlsx → data/_pipeline_cache/distributions_wide.xlsx
 analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-{YEAR}.xlsx + report-{YEAR}.md
                            #   (importable functions; compute core is run_analysis(), CLI under main())
+metrics.py                 # weight logic: load_weights (config + per-profile override), dense
+                           #   materialization, compute_metric (name-aligned dot product), weights_hash
 national_plot_distributions.py      # reads _pipeline_cache/distributions_wide.xlsx → output/distributions_plot.png
 
 tests/                     # pytest suite — synthetic data, no real-cache dependency
   conftest.py              # synthetic distributions_wide + baseis fixtures
   test_metrics_pipeline.py # metric / weights / regression unit + integration tests
+  test_metrics.py          # metrics.py units: config load/override, materialization, compute_metric, hash
   test_golden_profile.py   # end-to-end golden-report backup
   _golden_helpers.py       # shared synthetic-run logic
   _regen_golden.py         # regenerate the golden report after an intended change
@@ -131,7 +138,8 @@ on the gitignored pipeline cache:
 
 ## Key conventions
 
-- **`prediction_year` in `schools.yml` controls the analysis window.** `analyse.py` uses distribution data up to and including `prediction_year`, and βάσεις data up to `prediction_year - 1` (since the upcoming year's βάσεις are not yet published). Both output files are named after the year: `analysis-{prediction_year}.xlsx` and `report-{prediction_year}.md`. To target a different year, change only this field.
+- **`prediction_year` in `schools.yml` controls the analysis window.** `analyse.py` uses distribution data up to and including `prediction_year`, and βάσεις data up to `prediction_year - 1` (since the upcoming year's βάσεις are not yet published). Both output files are named after the year **and the weight-set hash**: `analysis-{prediction_year}-{hash}.xlsx` and `report-{prediction_year}-{hash}.md`, so runs with different weights coexist without clobbering one another. The hash is printed at the end of the run (and stamped into the report header / `metric_weights` sheet); to find the latest, glob `report-{prediction_year}-*.md`. To target a different year, change only this field.
+- **Metric weights are configurable and real-valued.** The high-end metric weights live in `metric_weights.yml` (repo-root global default) and may be overridden per-profile via an optional `metric_weights:` block in `schools.yml` (per-class replace; unnamed classes fall back to the global default). `metrics.py` is the single owner of the weight logic: it materializes the sparse YAML into a dense `float64` vector over the 48 `{class}_{bin:02d}` columns and computes the metric as a name-aligned dot product (so column order in the distribution frame can't silently misalign it). Every weight set actually used is persisted to the content-addressable `weights/{hash}.npy` (canonical dense array) with a sparse `.yml` sidecar, and that hash suffixes the output filenames — so weight sets are reproducible and never clobber one another. This is also the drop-zone the future weight-optimiser writes into. See [`refactor_metrics.md`](refactor_metrics.md) for the design.
 - **`national_load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only.
 - **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
 - **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).

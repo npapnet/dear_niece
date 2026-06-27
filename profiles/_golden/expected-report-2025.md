@@ -1,6 +1,7 @@
 # Analysis Report — _golden — 2025
 
 _Generated: 2026-06-27_
+_Weights hash: `32edbf`_
 
 ## Metric Weights
 

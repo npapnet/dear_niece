@@ -186,10 +186,13 @@ imported one-way (`analyse → metrics`) to avoid an import cycle:
   the 48 `{class}_{bin:02d}` names (fixed canonical order). This **name-indexed**
   form drives `compute_metric` and `weights_hash`, so both are column-order
   independent (fixes the silent-misalignment trap).
-- `compute_metric(wide_df, weights) -> pd.Series` —
-  `(wide_df[cols] * weight_vector).sum(axis=1)`, name-aligned.
+- `compute_metric(wide_df, weights) -> pd.Series` — name-aligned dot product
+  `(wide_df.reindex(columns=weight_vector.index, fill_value=0) * weight_vector).sum(axis=1)`;
+  a bin absent from `wide_df` counts as 0 (a percentage bin that never appeared is
+  genuinely 0%), so it's robust to missing columns, not just to column order.
 - `weights_hash(weights) -> str` — `weight_vector` → `float64`, C-contiguous,
-  `round(6)` → `sha256(.tobytes())`, first 6 hex. Built now, consumed in Phase 2.
+  `round(6)` (and `+ 0.0` to collapse `-0.0`) → `sha256(.tobytes())`, first 6 hex.
+  Built now, consumed in Phase 2.
 
 **`analyse.py` changes:**
 
@@ -235,28 +238,65 @@ regime") — its interaction with per-class override is under-specified and
 unnecessary while weights are sparse. Implement only implicit-0 now; revisit for
 the all-schools regime.
 
-### Phase 2 — Content-addressable store + hash-suffixed outputs
+### Phase 2 — Content-addressable store + hash-suffixed outputs ✅ done
 
-- `persist_weights(dense_array, hash)` in `metrics.py` — write
-  `weights/{hash}.npy` (dense array) plus a `weights/{hash}.yml` sidecar (sparse,
-  human-readable) if not already present.
-- Compute `hash = weights_hash(...)` and name outputs
-  `analysis-{prediction_year}-{hash}.xlsx` and
-  `report-{prediction_year}-{hash}.md` (replaces `analyse.py:49`, `:311`).
-- Put the weights + hash in the report header (extend `build_report`,
-  `analyse.py:240-308`) and the `metric_weights` workbook sheet.
+Implemented and green (`uv run pytest` → 24 passed); `analyse.py --profile maria`
+writes `analysis-2025-32edbf.xlsx` / `report-2025-32edbf.md` and the store
+`weights/32edbf.{npy,yml}` (default-weights hash `32edbf`). What landed:
+`metrics.persist_weights` (immutable per hash, canonical `.npy` + sparse `.yml`);
+`main()` persists + hash-suffixes both outputs and prints the hash;
+`build_report` stamps `_Weights hash: \`…\`_` in the header and `write_workbook`
+stamps it into cell A1 of the `metric_weights` sheet; `.gitignore` ignores
+`weights/`; `tests/_golden_helpers.py` globs the hash-suffixed report and sandboxes
+the store under a tmp `weights_dir`; golden regenerated (sole diff: the new hash
+header line); `architecture.md` updated for the naming convention + `weights/` dir.
+The "find the current output" UX is handled by printing the hash and globbing
+`report-{year}-*.md`.
+
+> Phase 2 review (vs the post-Phase-1 code/architecture): no blockers — the design
+> stands. Refinements folded in below: signature of `persist_weights` (it needs the
+> dict, not a bare array, to write both forms), removal of stale line-number
+> references (the code moved in Phases 0–1), the `metric_weights` sheet already
+> existing, the "find the current output" UX gap, and a tightened docs scope.
+
+- `persist_weights(weights, hash=None) -> str` in `metrics.py` — takes the **weights
+  dict** (not a bare array) so it can write *both* forms: persist the canonical
+  48-vector `weight_vector(weights).to_numpy()` to `weights/{hash}.npy` (this is the
+  form the NN emits/consumes and the exact array `weights_hash` hashes, so
+  reload→rehash is stable) **and** dump the sparse dict to a `weights/{hash}.yml`
+  sidecar for readability. Compute the hash internally via `weights_hash` when not
+  supplied; skip writing if the files already exist; return the hash.
+- Compute `hash = weights_hash(weights)` in `main()` and name outputs
+  `analysis-{prediction_year}-{hash}.xlsx` and `report-{prediction_year}-{hash}.md`
+  (the output-naming + `write_workbook` / `report_out.write_text` calls all live in
+  `main()` now — reference by symbol, not line number; Phases 0–1 moved the code).
+- Surface the weights + hash: add the hash to the report (extend the `build_report`
+  header — it already renders a "## Metric Weights" table) and to the **existing**
+  `metric_weights` workbook sheet (Phase 1 added the sheet; Phase 2 only adds the
+  hash label, it does not create the sheet).
+- **Finding "the" output (UX gap).** Hash suffixes let weight sets coexist but break
+  the "one predictably-named file per year" assumption in the [Goal](architecture.md)
+  and the `yearly-update` workflow. Settle + document how the current run is located
+  when Phase 2 starts — e.g. print the hash at the end of `main()` and have consumers
+  glob `report-{year}-*.md` (newest), since the default-weights hash is stable.
 - `.gitignore`: add `weights/` (generated, reproducible from YAML; pin a specific
   experiment by committing its `{hash}.*` if desired). `profiles/*/analysis-*.xlsx`
   and `profiles/*/report-*.md` already match the hash-suffixed names (and
   `report-*.md` does **not** match the committed `expected-report-*.md`, so the
   golden stays tracked).
-- **Golden test plumbing:** `tests/_golden_helpers.py:46` hardcodes the output name
-  `report-{year}.md`; update it to resolve the hash-suffixed file (e.g. glob
-  `report-{year}-*.md`). The report header now carries the (deterministic) hash, so
-  regenerate the golden once with `tests/_regen_golden.py`.
-- Docs: update the naming convention in `architecture.md` (lines 47-53, 95,
-  102-103) and the output-file references in
-  `.agents/skills/run-profile-analysis.md` and `run-analysis.md`.
+- **Golden test plumbing:** `tests/_golden_helpers.py` hardcodes the output name
+  `report-{year}.md` (the `report = … / f'report-{SYNTH_PREDICTION_YEAR}.md'` line);
+  update it to resolve the hash-suffixed file (e.g. glob `report-{year}-*.md`). The
+  report header now carries the (deterministic) hash, so regenerate the golden once
+  with `tests/_regen_golden.py`.
+- Docs: update `architecture.md` for the hash-suffixed convention — the directory-layout
+  `profiles/*/analysis-*.xlsx` / `report-*.md` lines, a new gitignored `weights/`
+  entry, and the `prediction_year` Key-convention bullet (which names the output
+  files). **Out of scope here:** the `.agents/skills/*` and
+  `.agents/workflows/yearly-update.md` docs are *already* stale (they reference
+  `output/distributions_wide.xlsx`, `data/baseis-master.csv`, `analysis.xlsx` with no
+  year, and non-existent `percentile_*` sheets); refreshing them is a **separate
+  doc-cleanup task**, not part of Phase 2's weights work.
 
 ### Phase 3 — (Deferred, separate commit) package + `dn` CLI
 

@@ -131,3 +131,30 @@ def test_weights_hash_format():
     h = weights_hash(DEFAULT_WEIGHTS)
     assert len(h) == 6
     assert all(c in '0123456789abcdef' for c in h)
+
+
+# --- persist_weights (content-addressable store) ------------------------------
+
+def test_persist_weights_writes_both_forms(tmp_path):
+    import yaml
+    h = metrics.persist_weights(DEFAULT_WEIGHTS, weights_dir=tmp_path)
+    assert h == weights_hash(DEFAULT_WEIGHTS)
+
+    npy, yml = tmp_path / f'{h}.npy', tmp_path / f'{h}.yml'
+    assert npy.exists() and yml.exists()
+
+    # .npy is the canonical vector and reload -> rehash is stable
+    arr = np.load(npy)
+    np.testing.assert_array_equal(
+        arr, weight_vector(DEFAULT_WEIGHTS).to_numpy(dtype='float64')
+    )
+    # .yml sidecar round-trips to the authored mapping
+    assert yaml.safe_load(yml.read_text()) == DEFAULT_WEIGHTS
+
+
+def test_persist_weights_is_immutable_per_hash(tmp_path):
+    h = metrics.persist_weights(DEFAULT_WEIGHTS, weights_dir=tmp_path)
+    mtime = (tmp_path / f'{h}.npy').stat().st_mtime_ns
+    h2 = metrics.persist_weights(DEFAULT_WEIGHTS, weights_dir=tmp_path)
+    assert h2 == h
+    assert (tmp_path / f'{h}.npy').stat().st_mtime_ns == mtime  # not rewritten

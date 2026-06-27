@@ -204,11 +204,18 @@ def run_analysis(wide_df, baseis_df, prediction_year, metric_weights=METRIC_WEIG
     }
 
 
-def write_workbook(results, path):
-    """Write the analysis result sheets to an Excel workbook."""
+def write_workbook(results, path, weights_hash=None):
+    """Write the analysis result sheets to an Excel workbook.
+
+    When ``weights_hash`` is given it is stamped into cell A1 of the
+    ``metric_weights`` sheet (the table then starts one row lower).
+    """
     with pd.ExcelWriter(path) as writer:
         results['high_end_metric'].to_excel(writer, sheet_name='high_end_metric')
-        results['metric_weights'].to_excel(writer, sheet_name='metric_weights')
+        _wt_startrow = 1 if weights_hash else 0
+        results['metric_weights'].to_excel(writer, sheet_name='metric_weights', startrow=_wt_startrow)
+        if weights_hash:
+            writer.sheets['metric_weights'].cell(row=1, column=1, value=f'weights hash: {weights_hash}')
         results['bin_diffs'].to_excel(writer, sheet_name='bin_diffs')
         results['baseis'].to_excel(writer, sheet_name='baseis')
         results['baseis_shifts'].to_excel(writer, sheet_name='baseis_shifts')
@@ -250,6 +257,7 @@ def build_report(
     baseis_shift: pd.DataFrame,
     prediction_df: pd.DataFrame,
     last_baseis_year: int,
+    weights_hash: str = None,
 ) -> str:
     """Return the full markdown report as a string."""
 
@@ -285,6 +293,10 @@ def build_report(
         f'# Analysis Report — {profile} — {prediction_year}',
         f'',
         f'_Generated: {datetime.date.today()}_',
+    ]
+    if weights_hash:
+        lines += [f'_Weights hash: `{weights_hash}`_']
+    lines += [
         f'',
         f'## Metric Weights',
         f'',
@@ -312,7 +324,7 @@ def build_report(
 
 # %%
 def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUTIONS_WIDE,
-         profiles_dir=ROOTDIR / 'profiles'):
+         profiles_dir=ROOTDIR / 'profiles', weights_dir=metrics.WEIGHTS_DIR):
     parser = argparse.ArgumentParser()
     parser.add_argument('--profile', required=True)
     args = parser.parse_args(argv)
@@ -322,6 +334,7 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
     schools = _profile_cfg['schools']
     prediction_year = int(_profile_cfg['prediction_year'])
     weights = metrics.load_weights(_profile_cfg)
+    w_hash = metrics.persist_weights(weights, weights_dir=weights_dir)
 
     for _cache_file in (baseis_master, distributions_wide):
         if not pathlib.Path(_cache_file).exists():
@@ -342,12 +355,14 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
     print("\nPredictions:")
     print(results['predictions'].to_string())
 
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    analysis_out = profile_dir / f'analysis-{prediction_year}.xlsx'
-    write_workbook(results, analysis_out)
-    print(f"\nSaved: {analysis_out}")
+    print(f"\nWeights hash: {w_hash}  (stored under {pathlib.Path(weights_dir)})")
 
-    report_out = profile_dir / f'report-{prediction_year}.md'
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    analysis_out = profile_dir / f'analysis-{prediction_year}-{w_hash}.xlsx'
+    write_workbook(results, analysis_out, weights_hash=w_hash)
+    print(f"Saved: {analysis_out}")
+
+    report_out = profile_dir / f'report-{prediction_year}-{w_hash}.md'
     report_out.write_text(
         build_report(
             profile=args.profile,
@@ -360,6 +375,7 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
             baseis_shift=results['baseis_shifts'],
             prediction_df=results['predictions'],
             last_baseis_year=results['last_baseis_year'],
+            weights_hash=w_hash,
         ),
         encoding='utf-8',
     )

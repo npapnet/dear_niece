@@ -4,7 +4,7 @@
 # Recent improvements
 
 This section is for completed tasks which have not yet been thoroughly documented or reflected in the documentation.
-
+- [x] UT Testing.
 
 # Backlog
 
@@ -13,6 +13,7 @@ This section is for completed tasks which have not yet been thoroughly documente
 
 This for generic tasks. 
 
+- [ ] Complete UT Testing.
 
 ## Metrics improvements 
 
@@ -34,8 +35,8 @@ In order to get better values for the weights of the high_end metric (or a bette
 - compare to other methods
 
 ## Future ideas
-- [ ] UT Testing.
+
 - [ ] Convert to package
-- [ ] this repo currently caters only 3rd field school. Try to generalise it for all 4 fields (This only requires handling of addtional mark distribution data, since baseis-raw contain all fields).
+- [ ] this repo currently caters only 3rd field schools (medical schools). Try to generalise it for all 4 fields (This only requires handling of addtional mark distribution data, since baseis-raw contain all fields).
   - [ ] national plot distribution only caters for the 3rd field.
   - [ ] national plot distribution only caters for the last year (maybe add an argument for processing a specific year as the last one and ignore subsequent, and set a number of years to include).

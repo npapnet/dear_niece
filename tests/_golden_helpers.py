@@ -42,6 +42,9 @@ def produce_report(work_dir) -> str:
         baseis_master=master_path,
         distributions_wide=wide_path,
         profiles_dir=profiles_dir,
+        weights_dir=work_dir / 'weights',
     )
-    report = profiles_dir / '_golden' / f'report-{SYNTH_PREDICTION_YEAR}.md'
-    return report.read_text(encoding='utf-8')
+    # Output is hash-suffixed (report-{year}-{hash}.md); there is exactly one.
+    matches = sorted((profiles_dir / '_golden').glob(f'report-{SYNTH_PREDICTION_YEAR}-*.md'))
+    assert len(matches) == 1, f'expected exactly one golden report, found {matches}'
+    return matches[0].read_text(encoding='utf-8')

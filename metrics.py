@@ -17,6 +17,7 @@ import yaml
 
 ROOTDIR = pathlib.Path(__file__).parent
 METRIC_WEIGHTS_YML = ROOTDIR / 'metric_weights.yml'
+WEIGHTS_DIR = ROOTDIR / 'weights'  # content-addressable store: {hash}.npy + {hash}.yml
 
 CLASSES = ['bio', 'phys', 'chem', 'lang']
 BINS = [0, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
@@ -113,3 +114,30 @@ def weights_hash(weights):
     arr = np.ascontiguousarray(weight_vector(weights).to_numpy(dtype='float64'))
     arr = np.round(arr, 6) + 0.0  # + 0.0 collapses any -0.0 so it can't perturb the bytes
     return hashlib.sha256(arr.tobytes()).hexdigest()[:6]
+
+
+def persist_weights(weights, hash=None, weights_dir=WEIGHTS_DIR):
+    """Persist a weight set to the content-addressable store; return its hash.
+
+    Writes two files under ``weights_dir`` (created if needed), keyed by the
+    weight hash:
+
+    - ``{hash}.npy`` — the canonical ``float64`` 48-vector (``weight_vector``
+      order): the exact array ``weights_hash`` digests and the form the future
+      NN emits/consumes, so reload -> rehash is stable.
+    - ``{hash}.yml`` — the sparse authored mapping, for human readability.
+
+    The store is immutable per hash: existing files are left untouched. This is
+    the drop-zone the future trainer writes into.
+    """
+    if hash is None:
+        hash = weights_hash(weights)
+    weights_dir = pathlib.Path(weights_dir)
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    npy_path = weights_dir / f'{hash}.npy'
+    yml_path = weights_dir / f'{hash}.yml'
+    if not npy_path.exists():
+        np.save(npy_path, weight_vector(weights).to_numpy(dtype='float64'))
+    if not yml_path.exists():
+        yml_path.write_text(yaml.safe_dump(weights, sort_keys=True), encoding='utf-8')
+    return hash
