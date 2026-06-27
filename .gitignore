@@ -8,9 +8,8 @@ __pycache__/
 
 # Calculated outputs
 output/
-data/baseis-master.csv
 
-profiles/*/analysis.xlsx
+profiles/*/analysis-*.xlsx
 
 # Excel lock files
 ~$*.xlsx

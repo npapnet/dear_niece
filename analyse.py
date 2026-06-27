@@ -30,17 +30,21 @@ parser.add_argument('--profile', required=True)
 args = parser.parse_args()
 
 profile_dir = ROOTDIR / 'profiles' / args.profile
-schools = yaml.safe_load((profile_dir / 'schools.yml').read_text())['schools']
+_profile_cfg = yaml.safe_load((profile_dir / 'schools.yml').read_text())
+schools = _profile_cfg['schools']
+prediction_year = int(_profile_cfg['prediction_year'])
 master = pd.read_csv(ROOTDIR / 'data' / 'baseis-master.csv', encoding='utf-8-sig')
 _sc = master['school_code'].astype('Int64').astype(str).str.zfill(4)
 baseis_df = master.loc[_sc.isin(schools), ['year', 'school_code', 'institution', 'department', 'entry']].copy()
 baseis_df['school_code'] = _sc[baseis_df.index]
-analysis_out = profile_dir / 'analysis.xlsx'
+baseis_df = baseis_df[baseis_df['year'] <= prediction_year - 1]
+analysis_out = profile_dir / f'analysis-{prediction_year}.xlsx'
 profile_dir.mkdir(parents=True, exist_ok=True)
 
 # %%
 wide_df = pd.read_excel(DISTRIBUTIONS_WIDE, sheet_name=0, index_col=0)
 wide_df.index = wide_df.index.astype(int)
+wide_df = wide_df[wide_df.index <= prediction_year]
 print("Years:", wide_df.index.tolist())
 print("Shape:", wide_df.shape)
 

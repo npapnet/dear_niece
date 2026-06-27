@@ -119,7 +119,13 @@ def build_master(raw_dir: str | pathlib.Path) -> pd.DataFrame:
     years that predate them.
     """
     raw_dir = pathlib.Path(raw_dir)
-    frames = [load_baseis_raw(f) for f in sorted(raw_dir.glob('gel-*.xlsx'))]
+    files = sorted(raw_dir.glob('gel-*.xlsx'))
+    frames = []
+    for i, f in enumerate(files, 1):
+        year = f.stem.split('-')[1]
+        print(f'  {year}  ({i}/{len(files)})', end='\n', flush=False)
+        frames.append(load_baseis_raw(f))
+    print()
     master = pd.concat(frames, ignore_index=True)
     # put year first for readability
     cols = ['year'] + [c for c in master.columns if c != 'year']
@@ -131,7 +137,6 @@ if __name__ == '__main__':
     raw_dir = pathlib.Path(__file__).parent / 'data' / 'baseis-raw'
     master = build_master(raw_dir)
     print(f'Loaded {len(master):,} rows across years: {sorted(master["year"].unique())}')
-    print(master.head(10).to_string())
     out = pathlib.Path(__file__).parent / 'data' / 'baseis-master.csv'
     master.to_csv(out, index=False, encoding='utf-8-sig')
-    print(f'\nSaved → {out}')
+    print(f'Saved → {out}')
