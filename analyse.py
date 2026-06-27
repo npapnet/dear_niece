@@ -20,6 +20,9 @@ import pandas as pd
 import numpy as np
 import pathlib
 
+import metrics
+from metrics import CLASSES, BINS
+
 # %%
 ROOTDIR = pathlib.Path(__file__).parent
 DATADIR = ROOTDIR / 'data'
@@ -27,16 +30,9 @@ CACHE_DIR = DATADIR / '_pipeline_cache'
 BASEIS_MASTER = CACHE_DIR / 'baseis-master.csv'
 DISTRIBUTIONS_WIDE = CACHE_DIR / 'distributions_wide.xlsx'
 
-CLASSES = ['bio', 'phys', 'chem', 'lang']
-BINS = [0, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-
-# --- Weighted high-end metric ---
-METRIC_WEIGHTS = {
-    'bio':  {18: 0, 19: 1},
-    'chem': {18: 0, 19: 1},
-    'lang': {14: 0, 15: 1, 16: 2, 17: 3, 18: 4, 19: 5},
-    'phys': {16: 0, 17: 1, 18: 2, 19: 3},
-}
+# Default weights live in metrics.py (mirrored by metric_weights.yml); aliased
+# here so run_analysis's default and the tests/fixtures keep their old name.
+METRIC_WEIGHTS = metrics.DEFAULT_WEIGHTS
 
 
 # %%
@@ -59,17 +55,14 @@ def compute_bin_diffs(wide_df):
 
 
 def compute_metric_df(wide_df, metric_weights=METRIC_WEIGHTS, bins=BINS):
-    """Weighted high-end metric per year, plus its year-over-year shift."""
-    years = wide_df.index.tolist()
-    records = []
-    for year in years:
-        total = 0.0
-        for cls, weights in metric_weights.items():
-            dist = get_class_distribution(wide_df, year, cls, bins)
-            for bin_label, weight in weights.items():
-                total += dist[bin_label] * weight
-        records.append({'year': year, 'metric': round(total, 2)})
-    metric_df = pd.DataFrame(records).set_index('year')
+    """Weighted high-end metric per year, plus its year-over-year shift.
+
+    Delegates the weighting to ``metrics.compute_metric`` (name-aligned dense dot
+    product); ``bins`` is accepted for signature compatibility but the canonical
+    48-column set is owned by ``metrics``.
+    """
+    metric_df = metrics.compute_metric(wide_df, metric_weights).round(2).rename('metric').to_frame()
+    metric_df.index.name = 'year'
     metric_df['metric_shift'] = metric_df['metric'].diff()
     return metric_df
 
@@ -200,6 +193,7 @@ def run_analysis(wide_df, baseis_df, prediction_year, metric_weights=METRIC_WEIG
     )
     return {
         'high_end_metric': metric_df,
+        'metric_weights': metrics.dense_weights(metric_weights),
         'bin_diffs': diff_df,
         'baseis': baseis_wide,
         'baseis_shifts': baseis_shift,
@@ -214,6 +208,7 @@ def write_workbook(results, path):
     """Write the analysis result sheets to an Excel workbook."""
     with pd.ExcelWriter(path) as writer:
         results['high_end_metric'].to_excel(writer, sheet_name='high_end_metric')
+        results['metric_weights'].to_excel(writer, sheet_name='metric_weights')
         results['bin_diffs'].to_excel(writer, sheet_name='bin_diffs')
         results['baseis'].to_excel(writer, sheet_name='baseis')
         results['baseis_shifts'].to_excel(writer, sheet_name='baseis_shifts')
@@ -326,6 +321,7 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
     _profile_cfg = yaml.safe_load((profile_dir / 'schools.yml').read_text())
     schools = _profile_cfg['schools']
     prediction_year = int(_profile_cfg['prediction_year'])
+    weights = metrics.load_weights(_profile_cfg)
 
     for _cache_file in (baseis_master, distributions_wide):
         if not pathlib.Path(_cache_file).exists():
@@ -339,7 +335,7 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
     print("Years:", wide_df.index.tolist())
     print("Shape:", wide_df.shape)
 
-    results = run_analysis(wide_df, baseis_df, prediction_year)
+    results = run_analysis(wide_df, baseis_df, prediction_year, metric_weights=weights)
 
     print("\nWeighted high-end metric by year:")
     print(results['high_end_metric'].to_string())
@@ -356,7 +352,7 @@ def main(argv=None, *, baseis_master=BASEIS_MASTER, distributions_wide=DISTRIBUT
         build_report(
             profile=args.profile,
             prediction_year=prediction_year,
-            metric_weights=METRIC_WEIGHTS,
+            metric_weights=weights,
             classes=CLASSES,
             bins=BINS,
             diff_df=results['bin_diffs'],

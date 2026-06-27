@@ -151,7 +151,15 @@ Implemented and green (`uv run pytest` → 7 passed). What landed:
   `_Generated:` date); `tests/_golden_helpers.py` + `tests/_regen_golden.py`
   share the run logic and regenerate the golden after intended changes.
 
-### Phase 1 — Config-loaded weights + `metrics.py` (dense representation)
+### Phase 1 — Config-loaded weights + `metrics.py` (dense representation) ✅ done
+
+Implemented and green (`uv run pytest` → 22 passed); `analyse.py --profile maria`
+runs clean. As planned, the golden report was regenerated — the **only** change is
+the Metric Weights table now rendering 2-decimal floats (`1.00` vs `1`); all
+numeric sections (diffs, baseis shifts, predictions) are byte-identical. The
+`metric_weights.yml` no-drift, override, validation, materialization, name-aligned
+`compute_metric`, and `weights_hash` representation-independence tests all pass.
+`weights_hash` is built but not yet consumed (Phase 2).
 
 Re-scoped to the post-Phase-0 code: `run_analysis(...)` already accepts
 `metric_weights` and `compute_metric_df` already isolates the metric — so Phase 1
@@ -160,10 +168,14 @@ is a new module + config file + wiring, **not** a rewrite of the compute path.
 **New `metrics.py`** (repo root) owns the weight logic and the shared constants,
 imported one-way (`analyse → metrics`) to avoid an import cycle:
 
-- Move `CLASSES`, `BINS`, and the default weights (`DEFAULT_WEIGHTS`, today's
-  `METRIC_WEIGHTS`) into `metrics.py`; `analyse.py` imports them and keeps
-  `METRIC_WEIGHTS = metrics.DEFAULT_WEIGHTS` as an alias so `run_analysis`'s
-  default and the synthetic fixtures are unchanged.
+- Move `CLASSES`, `BINS`, and the default weights into `metrics.py` as
+  `DEFAULT_WEIGHTS` — **float-valued** (e.g. `{18: 0.0, 19: 1.0}`), mirroring the
+  real-valued `metric_weights.yml` rather than today's int literals. `analyse.py`
+  imports them and keeps `METRIC_WEIGHTS = metrics.DEFAULT_WEIGHTS` as an alias so
+  `run_analysis`'s default and the synthetic fixtures keep working. Float vs int
+  weights yield the identical rounded metric/diffs/predictions, so the hand-computed
+  tests are unaffected; the only visible change is the report's weights-table
+  rendering (see Guard).
 - `load_weights(profile_cfg, default_path=METRIC_WEIGHTS_YML) -> dict` — read
   `metric_weights.yml`, apply the per-class override from `profile_cfg`, validate
   class ∈ `CLASSES`, bin ∈ `BINS`, weight numeric (clear error otherwise).
@@ -201,9 +213,22 @@ mirroring `DEFAULT_WEIGHTS`.
 - `weights_hash` stability + representation-independence (key order; `1` vs `1.0`).
 - **No-drift:** `metric_weights.yml` parses to exactly `DEFAULT_WEIGHTS`.
 
-**Guard:** default weights ⇒ identical metric, so the Phase 0 golden + synthetic
-tests stay green; the new `metric_weights` sheet is additive and absent from the
-report, so the golden report is unchanged.
+**Guard:** default weights ⇒ identical *numeric* metric/diffs/predictions, so the
+synthetic hand-computed tests stay green unchanged. **The golden report does change
+in one cosmetic way and is regenerated in this phase:** because weights are now
+real-valued (`DEFAULT_WEIGHTS` and `metric_weights.yml` are float-authored), the
+report's existing "## Metric Weights" table renders 2-decimal floats (`1.00` instead
+of `1`) — consistent with the report's house style, since the Distribution Diffs and
+Predictions tables already render `.2f`. This is an *intended* change isolated to the
+weights-table cells: regen with `uv run python tests/_regen_golden.py` and confirm the
+diff touches only those cells (metric/diffs/predictions values unchanged). The new
+`metric_weights` *workbook sheet* is additive — the golden test diffs only the report
+`.md`, so the sheet can't affect it.
+
+> Note: the "no-drift" test (`metric_weights.yml` parses to `DEFAULT_WEIGHTS`) is now
+> an exact float-to-float equality; it would *not* by itself catch an int-vs-float
+> spelling slip (`1 == 1.0`), so the regenerated golden report is what actually pins
+> the rendered table.
 
 **Deferred:** the `default:` baseline-fill (see §"Baseline fill for the dense
 regime") — its interaction with per-class override is under-specified and
@@ -222,7 +247,13 @@ the all-schools regime.
   `analyse.py:240-308`) and the `metric_weights` workbook sheet.
 - `.gitignore`: add `weights/` (generated, reproducible from YAML; pin a specific
   experiment by committing its `{hash}.*` if desired). `profiles/*/analysis-*.xlsx`
-  and `profiles/*/report-*.md` already match the hash-suffixed names.
+  and `profiles/*/report-*.md` already match the hash-suffixed names (and
+  `report-*.md` does **not** match the committed `expected-report-*.md`, so the
+  golden stays tracked).
+- **Golden test plumbing:** `tests/_golden_helpers.py:46` hardcodes the output name
+  `report-{year}.md`; update it to resolve the hash-suffixed file (e.g. glob
+  `report-{year}-*.md`). The report header now carries the (deterministic) hash, so
+  regenerate the golden once with `tests/_regen_golden.py`.
 - Docs: update the naming convention in `architecture.md` (lines 47-53, 95,
   102-103) and the output-file references in
   `.agents/skills/run-profile-analysis.md` and `run-analysis.md`.
