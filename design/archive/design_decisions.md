@@ -49,3 +49,45 @@ It holds only the schools relevant to the analysis and is not auto-generated, so
 ## Missing distribution bins are NaN, not zero
 
 `get_wide_format` in `national_pivot_distributions.py` no longer passes `fill_value=0` to `pivot_table`. A bin/year combination absent from the source data becomes `NaN` rather than `0.0`. Rationale: a genuine zero percentage (no students scored in that bin) and a missing observation are semantically different. Imputing `0.0` made the weighted metric treat absent data as real evidence, silently biasing scores for subjects not administered in a given year.
+
+## Automatic weight optimisation (and a neural network) evaluated and rejected
+
+The `metric_weights.yml` weights are **hand-authored** and stay that way. A feature
+branch (`feature/weight-optimisation`) explored learning them from data — a
+per-school OLS weight optimiser, a global Ridge regression with interaction
+terms, and a planned neural network — exporting the result back into the weight
+store for `analyse.py` to consume. It was discarded. The reasons are structural,
+not implementation detail, so they are recorded here to stop the idea being
+re-attempted:
+
+- **The data has almost no degrees of freedom in the distribution dimension.**
+  The 48 distribution-diff features are *global* — identical for every school in
+  a given year-over-year period. With only a handful of years, the entire
+  training set spans just that handful of distinct points in 48-dimensional diff
+  space; the only per-school variation is the prior-year entry mark. Fitting tens
+  of weights (let alone a neural network) to so few distinct inputs is hopelessly
+  under-determined and overfits. More model capacity makes this worse, not
+  better.
+
+- **The metric weights are not uniquely identifiable (scale-degeneracy).** In
+  both `analyse.py` and the optimiser, the weight vector `W` enters only through
+  a *scalar* metric, and each school then fits its own `shift ≈ a·metric + b`
+  line. Scaling `W` by any positive constant rescales every school's `a`
+  inversely and leaves all predictions — and therefore the loss — unchanged. The
+  "optimal weights" are a ray, not a point: only the *shape* of `W` is meaningful,
+  never its magnitude, so learned weights cannot be compared or trusted by value.
+
+- **The hand-authored prior is the right tool and dominates.** The weights encode
+  domain knowledge an optimiser cannot recover from a few points: admission
+  thresholds for competitive (field-3) schools are set by the top of the grade
+  distribution, so only high bins carry weight, increasing toward the top. This
+  expert prior collapses 48 dimensions to one at zero fitting cost, leaving just
+  two parameters per school to estimate — which is all the data can support.
+
+Only a model that reduces to a 48-dim metric weight could ever feed `analyse.py`;
+anything richer (interactions, `entry_prev`, non-linearity, a neural network)
+changes the function class and cannot be projected back onto that representation.
+Combined with the points above, the conclusion was to keep `analyse.py` on the
+hand-authored metric alone and drop the ML branch entirely. If the question is
+revisited, the binding constraint to solve first is data volume (more years, or a
+different unit of observation), not model sophistication.
