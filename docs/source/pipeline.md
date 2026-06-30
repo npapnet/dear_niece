@@ -2,9 +2,10 @@
 
 ## Script map
 
-Four scripts form a linear pipeline. Each script reads from permanent source files
-and writes to the `output/` directory or a profile folder — both gitignored and always
-regenerated from source.
+Five scripts form the pipeline — three core stages plus two optional branches
+(`national_plot_distributions.py` and `build_feature_set.py`). Each script reads
+from permanent source files and writes to the `output/` directory or a profile
+folder — both gitignored and always regenerated from source.
 
 ```{mermaid}
 flowchart TD
@@ -20,10 +21,13 @@ flowchart TD
     E --> G["analyse.py --profile NAME"]
     F --> G
     F --> H["national_plot_distributions.py"]
+    E --> K["build_feature_set.py"]
+    F --> K
 
     G --> I["profiles/NAME/analysis-YEAR-HASH.xlsx\nMetric, baseis, predictions for this profile"]
     G --> R["profiles/NAME/report-YEAR-HASH.md\nMarkdown summary"]
     H --> J["output/distributions_plot.png\nComplementary CDF curves, all subjects"]
+    K --> L["output/feature_set.xlsx\nPer-(field-3 school, period) feature table"]
 ```
 
 ## Scripts in detail
@@ -108,15 +112,29 @@ subjects, with one line per year. The two most recent years are drawn thicker.
 The script raises a `FileNotFoundError` with a helpful message if the cache file is
 missing — run `national_pivot_distributions.py` first.
 
+### `build_feature_set.py`
+
+Optional. Reads both cache files and flattens them into a single table at
+`output/feature_set.xlsx` — one row per **(field-3 school, year-over-year
+period)** where both thresholds are known. Each row carries identifier columns
+(`school_code, institution, department, period, year_prev, year`), the 48 national
+distribution diffs (`{subject}_{bin}`) plus `entry_prev` as features, and `entry`
+(absolute threshold for year Y) and `shift` (`entry − entry_prev`) as targets. It
+reuses `analyse.compute_bin_diffs` so the diff columns match the rest of the
+pipeline. This is data preparation for inspection or external modelling only — no
+model is fit. (Automatic optimisation of the metric weights over this table was
+evaluated and rejected; see `design/archive/design_decisions.md`.)
+
 ## Running the pipeline
 
 ```bash
 uv run python national_load_baseis.py
 uv run python national_pivot_distributions.py
 uv run python analyse.py --profile maria
-uv run python national_plot_distributions.py
+uv run python national_plot_distributions.py   # optional
+uv run python build_feature_set.py             # optional → output/feature_set.xlsx
 ```
 
 Scripts are independent except for the dependency order shown in the diagram above.
-`analyse.py` must run after both loaders; the plot script can run in parallel with
-`analyse.py` once `national_pivot_distributions.py` has finished.
+`analyse.py` must run after both loaders; the plot and feature-set scripts can run
+in parallel with `analyse.py` once both loaders have finished.

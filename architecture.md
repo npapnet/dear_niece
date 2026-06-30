@@ -43,6 +43,7 @@ data/
 
 output/                    # gitignored — final deliverables
   distributions_plot.png   # complementary CDF plots per subject
+  feature_set.xlsx         # per-(field-3 school, period) feature table (optional — build_feature_set.py)
 
 weights/                   # gitignored — content-addressable weight store ({hash}.npy + {hash}.yml sidecar)
 
@@ -71,6 +72,8 @@ analyse.py                 # reads _pipeline_cache → profiles/{name}/analysis-
 metrics.py                 # weight logic: load_weights (config + per-profile override), dense
                            #   materialization, compute_metric (name-aligned dot product), weights_hash
 national_plot_distributions.py      # reads _pipeline_cache/distributions_wide.xlsx → output/distributions_plot.png
+build_feature_set.py       # reads _pipeline_cache → output/feature_set.xlsx (per-(field-3 school, period)
+                           #   feature table: 48 distribution diffs + entry_prev, with entry/shift targets; optional)
 
 tests/                     # pytest suite — synthetic data, no real-cache dependency
 ```
@@ -107,7 +110,14 @@ national_load_baseis.py          →  data/_pipeline_cache/baseis-master.csv
 national_pivot_distributions.py  →  data/_pipeline_cache/distributions_wide.xlsx
 analyse.py              →  profiles/{name}/analysis-{YEAR}-{hash}.xlsx + report-{YEAR}-{hash}.md
 national_plot_distributions.py   →  output/distributions_plot.png
+build_feature_set.py             →  output/feature_set.xlsx   (optional — feature table for external inspection/modelling)
 ```
+
+`build_feature_set.py` is an **optional branch**: it reads the same pipeline cache
+and emits a flat per-(field-3 school, period) feature table for inspection or
+external modelling. Nothing in the core pipeline depends on it. (Automatic
+weight optimisation over this table was evaluated and rejected — see
+`design/archive/design_decisions.md`.)
 
 All outputs are gitignored and always regenerated from source.
 
@@ -135,7 +145,7 @@ on the gitignored pipeline cache:
 - **Distribution data must be consecutive with no gaps, and cover at least 2 years up to `prediction_year`.** `load_wide_df` enforces both: a gap (e.g. 2023 present, 2024 absent, 2025 present) raises `ValueError` immediately, because non-consecutive diffs would be silently mislabelled and bias the metric. If a year is missing, add it to `distributions.xlsx` and re-run `national_pivot_distributions.py`.
 - **School codes in `schools.yml` may be quoted strings or unquoted integers.** Both `'0302'` and `302` are accepted — they are coerced to zero-padded 4-digit strings on load.
 - **`prediction_year` in `schools.yml` controls the analysis window.** `analyse.py` uses distribution data up to and including `prediction_year`, and βάσεις data up to `prediction_year - 1` (since the upcoming year's βάσεις are not yet published). Both output files are named after the year **and the weight-set hash**: `analysis-{prediction_year}-{hash}.xlsx` and `report-{prediction_year}-{hash}.md`, so runs with different weights coexist without clobbering one another. The hash is printed at the end of the run (and stamped into the report header / `metric_weights` sheet); to find the latest, glob `report-{prediction_year}-*.md`. To target a different year, change only this field.
-- **Metric weights are configurable and real-valued.** The high-end metric weights live in `metric_weights.yml` (repo-root global default) and may be overridden per-profile via an optional `metric_weights:` block in `schools.yml` (per-class replace; unnamed classes fall back to the global default). **All four classes (`bio`, `phys`, `chem`, `lang`) must be present in the final merged weights** — `_validate` raises `ValueError` if any class is missing, so a `metric_weights.yml` that accidentally omits a class is caught at load time. `metrics.py` is the single owner of the weight logic: it materializes the sparse YAML into a dense `float64` vector over the 48 `{class}_{bin:02d}` columns and computes the metric as a name-aligned dot product (so column order in the distribution frame can't silently misalign it). Every weight set actually used is persisted to the content-addressable `weights/{hash}.npy` (canonical dense array) with a sparse `.yml` sidecar, and that hash suffixes the output filenames — so weight sets are reproducible and never clobber one another. This is also the drop-zone the future weight-optimiser writes into.
+- **Metric weights are configurable and real-valued.** The high-end metric weights live in `metric_weights.yml` (repo-root global default) and may be overridden per-profile via an optional `metric_weights:` block in `schools.yml` (per-class replace; unnamed classes fall back to the global default). **All four classes (`bio`, `phys`, `chem`, `lang`) must be present in the final merged weights** — `_validate` raises `ValueError` if any class is missing, so a `metric_weights.yml` that accidentally omits a class is caught at load time. `metrics.py` is the single owner of the weight logic: it materializes the sparse YAML into a dense `float64` vector over the 48 `{class}_{bin:02d}` columns and computes the metric as a name-aligned dot product (so column order in the distribution frame can't silently misalign it). Every weight set actually used is persisted to the content-addressable `weights/{hash}.npy` (canonical dense array) with a sparse `.yml` sidecar, and that hash suffixes the output filenames — so weight sets are reproducible and never clobber one another.
 - **`national_load_baseis.py` is the only file that knows the raw xlsx format.** All header-parsing logic lives in `_build_columns()`. If the ministry changes the layout again, fix it there only. The filename (`gel-YYYY.xlsx`) is the **authoritative source of the year**; `_extract_year` reads the title cell only as a cross-check — a mismatch raises `AssertionError` immediately so a misnamed file cannot silently corrupt the master.
 - **`school_code` is the stable cross-year join key.** Department names and institution abbreviations drift across years; the 4-digit ministry code does not.
 - **`field_1`–`field_4` are bool columns.** The raw `ΕΠΙΣΤΗΜΟΝΙΚΑ ΠΕΔΙΑ` value (e.g. `'2/3'`) is one-hot encoded on load to avoid Excel date-coercion. Field 3 = natural sciences (biology).

@@ -54,6 +54,7 @@ flowchart LR
 | `national_pivot_distributions.py` | Once per year | `data/_pipeline_cache/distributions_wide.xlsx` |
 | `national_plot_distributions.py` | Optional | `output/distributions_plot.png` |
 | `analyse.py --profile name` | Per profile per year | `profiles/name/analysis-{year}-{hash}.xlsx` + `report-{year}-{hash}.md` |
+| `build_feature_set.py` | Optional | `output/feature_set.xlsx` (per-(field-3 school, period) feature table) |
 
 See [quickstart.md](quickstart.md) for the full workflow with download URLs.
 
@@ -78,11 +79,16 @@ weight set; that hash suffixes the output files and keys a content-addressable
 
 ### Future work
 
-- Train a neural network to learn better per-bin weights (the metric is already a linear
-  layer; the dense-array + `weights/{hash}.npy` design lays the groundwork).
 - Promote the scripts into a `dn` CLI package — see
   [`design/future_work/refactor_package.md`](design/future_work/refactor_package.md).
 - Generalise beyond the 3rd (natural-sciences) field to all four exam fields.
+
+Automatic weight optimisation (and a neural network) was evaluated and **rejected**
+— the data has too few degrees of freedom for it to beat the hand-authored metric.
+See [`design/archive/design_decisions.md`](design/archive/design_decisions.md).
+
+The metric weights stay hand-authored; `build_feature_set.py` exports the
+underlying feature table for anyone who wants to explore the data externally.
 
 
 ## Setup

@@ -108,6 +108,30 @@ never overwrite each other.
 
 ---
 
+## Optional — feature-set export
+
+Independent of the per-profile analysis, `build_feature_set.py` flattens the
+shared pipeline cache into a single table for inspection in Excel or external
+modelling:
+
+```bash
+uv run python build_feature_set.py             # → output/feature_set.xlsx
+```
+
+One row per **(field-3 school, year-over-year period)** where both thresholds are
+known. Columns:
+
+- identifiers — `school_code, institution, department, period, year_prev, year`;
+- features — the 48 national distribution diffs (`{class}_{bin:02d}`) plus
+  `entry_prev` (the school's threshold in year Y-1);
+- targets — `entry` (the absolute threshold in year Y) and `shift` (`entry − entry_prev`).
+
+This is data preparation only — no model is fit. (Automatic optimisation of the
+metric weights over this table was evaluated and rejected; see
+`design/archive/design_decisions.md`.)
+
+---
+
 ## Setting up a new profile
 
 ### What to do
@@ -175,4 +199,7 @@ uv run python national_plot_distributions.py   # → output/distributions_plot.p
 
 # Profile analysis (once per profile per year)
 uv run python analyse.py --profile {name}      # → profiles/{name}/analysis-{year}-{hash}.xlsx + report
+
+# Optional — export the per-school feature table for inspection / external modelling
+uv run python build_feature_set.py             # → output/feature_set.xlsx
 ```
